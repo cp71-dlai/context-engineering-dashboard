@@ -1,0 +1,96 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "context-engineering-dashboard"
+version = "0.1.0"
+description = "Visualize and debug LLM context windows in Jupyter notebooks"
+readme = "README.md"
+license = "MIT"
+authors = [
+    {name = "Chroma", email = "team@trychroma.com"}
+]
+keywords = [
+    "llm",
+    "context-engineering", 
+    "rag",
+    "chromadb",
+    "visualization",
+    "jupyter"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Framework :: Jupyter"
+]
+requires-python = ">=3.10"
+dependencies = [
+    "ipython>=8.0",
+    "tiktoken>=0.5.0",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.0.0"]
+langchain = ["langchain>=0.1.0", "langchain-core>=0.1.0"]
+chroma = ["chromadb>=0.4.0"]
+all = [
+    "openai>=1.0.0",
+    "langchain>=0.1.0",
+    "langchain-core>=0.1.0",
+    "chromadb>=0.4.0"
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "black>=23.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/cp71-dlai/context-engineering-dashboard"
+Documentation = "https://github.com/cp71-dlai/context-engineering-dashboard#readme"
+Repository = "https://github.com/cp71-dlai/context-engineering-dashboard"
+Issues = "https://github.com/cp71-dlai/context-engineering-dashboard/issues"
+
+[tool.poetry]
+name = "context-engineering-dashboard"
+version = "0.1.0"
+description = "Visualize and debug LLM context windows in Jupyter notebooks"
+authors = ["Chroma <team@trychroma.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "context_engineering_dashboard"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+ipython = "^8.0"
+tiktoken = "^0.5.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+pytest-cov = "^4.0"
+black = "^23.0"
+ruff = "^0.1.0"
+mypy = "^1.0"
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "W"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true

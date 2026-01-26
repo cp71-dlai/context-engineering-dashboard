@@ -1,1 +1,0 @@
-- Same rules apply here as well which are mentioned in the W1 folder
