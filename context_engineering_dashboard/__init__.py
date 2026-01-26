@@ -39,6 +39,13 @@ def trace_langchain(**kwargs):  # type: ignore[no-untyped-def]
     return LangChainTracer(**kwargs)
 
 
+def trace_litellm(**kwargs):  # type: ignore[no-untyped-def]
+    """Convenience function to create a LiteLLM tracer context manager."""
+    from context_engineering_dashboard.tracers.litellm_tracer import LiteLLMTracer
+
+    return LiteLLMTracer(**kwargs)
+
+
 __all__ = [
     "ComponentType",
     "ContextComponent",
@@ -53,5 +60,6 @@ __all__ = [
     "trace_chroma",
     "trace_openai",
     "trace_langchain",
+    "trace_litellm",
     "__version__",
 ]

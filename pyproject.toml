@@ -41,11 +41,13 @@ dependencies = [
 openai = ["openai>=1.0.0"]
 langchain = ["langchain>=0.1.0", "langchain-core>=0.1.0"]
 chroma = ["chromadb>=0.4.0"]
+litellm = ["litellm>=1.0.0"]
 all = [
     "openai>=1.0.0",
     "langchain>=0.1.0",
     "langchain-core>=0.1.0",
-    "chromadb>=0.4.0"
+    "chromadb>=0.4.0",
+    "litellm>=1.0.0",
 ]
 dev = [
     "pytest>=7.0",

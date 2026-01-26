@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/chroma-core/context-engineering-dashboard/schemas/trace.json",
+  "$id": "https://github.com/cp71-dlai/context-engineering-dashboard/schemas/trace.json",
   "title": "ContextTrace",
   "description": "Complete trace of a context engineering operation for visualization",
   "type": "object",
