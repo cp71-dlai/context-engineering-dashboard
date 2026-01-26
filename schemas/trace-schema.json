@@ -108,7 +108,7 @@
           "description": "The query text used for retrieval"
         },
         "query_embedding": {
-          "type": "array",
+          "type": ["array", "null"],
           "items": {"type": "number"},
           "description": "The query embedding vector (optional)"
         },
@@ -118,7 +118,7 @@
           "description": "Number of results requested"
         },
         "where_filter": {
-          "type": "object",
+          "type": ["object", "null"],
           "description": "Chroma where filter applied (optional)"
         },
         "results": {
@@ -144,7 +144,7 @@
           "description": "Arguments passed to the tool"
         },
         "result": {
-          "type": "string",
+          "type": ["string", "null"],
           "description": "Result returned by the tool (optional)"
         }
       }
@@ -266,7 +266,10 @@
       "description": "Chroma retrieval operations (shows available pool)"
     },
     "llm_trace": {
-      "$ref": "#/definitions/LLMTrace",
+      "oneOf": [
+        {"$ref": "#/definitions/LLMTrace"},
+        {"type": "null"}
+      ],
       "description": "Language model call trace"
     },
     "embedding_traces": {

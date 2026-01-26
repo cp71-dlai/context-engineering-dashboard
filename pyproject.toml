@@ -52,7 +52,8 @@ dev = [
     "pytest-cov>=4.0",
     "black>=23.0",
     "ruff>=0.1.0",
-    "mypy>=1.0"
+    "mypy>=1.0",
+    "jsonschema>=4.0",
 ]
 
 [project.urls]
@@ -88,6 +89,8 @@ target-version = ["py310", "py311", "py312"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
 select = ["E", "F", "I", "W"]
 
 [tool.mypy]

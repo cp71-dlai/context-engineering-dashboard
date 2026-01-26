@@ -39,3 +39,8 @@ venv/
 
 .devcontainer/
 .claude/
+CLAUDE.md
+.ruff_cache/ 
+.pytest_cache/ 
+.mypy_cache/ 
+.coverage
