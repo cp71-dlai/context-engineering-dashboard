@@ -19,14 +19,13 @@ Generate diff across multiple traces.
 - **Three interaction modes**: View → Explore → Edit
 - **Chroma-native**: See retrieval scores, metadata, and selection decisions
 - **Diff view**: Sankey diagrams show before/after compaction
-- **Neo-brutalist design**: High contrast, accessible, no visual noise
 
 ---
 
 ## Installation
 
 ```bash
-pip install context-engineering-dashboard
+pip install git+https://github.com/cp71-dlai/context-engineering-dashboard.git@v0.1.0
 ```
 
 With provider support:
