@@ -5,11 +5,11 @@ build-backend = "poetry.core.masonry.api"
 [project]
 name = "context-engineering-dashboard"
 version = "0.1.0"
-description = "Visualize and debug LLM context windows in Jupyter notebooks"
+description = "Visualize LLM context windows in Jupyter notebooks"
 readme = "README.md"
 license = "MIT"
 authors = [
-    {name = "Chroma", email = "team@trychroma.com"}
+    {name = "Christopher Policastro", email = "chris@deeplearning.ai"}
 ]
 keywords = [
     "llm",
@@ -25,9 +25,6 @@ classifiers = [
     "Intended Audience :: Education",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Framework :: Jupyter"
 ]
@@ -68,7 +65,7 @@ Issues = "https://github.com/cp71-dlai/context-engineering-dashboard/issues"
 name = "context-engineering-dashboard"
 version = "0.1.0"
 description = "Visualize and debug LLM context windows in Jupyter notebooks"
-authors = ["Chroma <team@trychroma.com>"]
+authors = ["Christopher Policastro <chris@deeplearning.ai>"]
 license = "MIT"
 readme = "README.md"
 packages = [{include = "context_engineering_dashboard"}]

@@ -3,9 +3,13 @@
 [![PyPI](https://img.shields.io/pypi/v/context-engineering-dashboard)](https://pypi.org/project/context-engineering-dashboard/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](https://opensource.org/licenses/MIT)
 
-Visualize and debug LLM context windows in Jupyter notebooks. Built for the [Context Engineering with Chroma](https://www.deeplearning.ai/) course.
+View, explore, and edit LLM context windows in Jupyter notebooks. 
 
-![Context Window Visualization](docs/assets/demo.png)
+![Context Window Visualization](docs/demo.png)
+
+Generate diff across multiple traces. 
+
+![Context Windows Diff](docs/demo-2.png)
 
 ---
 
@@ -30,6 +34,8 @@ With provider support:
 ```bash
 pip install 'context-engineering-dashboard[openai]'
 pip install 'context-engineering-dashboard[chroma]'
+pip install 'context-engineering-dashboard[langchain]'
+pip install 'context-engineering-dashboard[litellm]'
 pip install 'context-engineering-dashboard[all]'
 ```
 
@@ -48,6 +54,27 @@ client = OpenAI()
 # Capture a trace
 with trace_openai() as tracer:
     response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Explain context engineering."}
+        ]
+    )
+
+# Visualize
+ctx = ContextWindow(trace=tracer.result, context_limit=128_000)
+ctx.display()
+```
+
+### With LiteLLM
+
+```python
+from context_engineering_dashboard import ContextWindow, trace_litellm
+import litellm
+
+# Trace any LLM provider via LiteLLM (OpenAI, Claude, Gemini, etc.)
+with trace_litellm() as tracer:
+    response = litellm.completion(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
@@ -205,10 +232,15 @@ trace = ContextTrace.from_json("my_trace.json")
 ### Tracers
 
 ```python
-from context_engineering_dashboard import trace_openai, trace_langchain, trace_chroma
+from context_engineering_dashboard import trace_openai, trace_langchain, trace_chroma, trace_litellm
 
 # OpenAI
 with trace_openai() as t:
+    ...
+trace = t.result
+
+# LiteLLM (any provider)
+with trace_litellm() as t:
     ...
 trace = t.result
 
@@ -266,6 +298,7 @@ ContextDiff(
 
 Optional:
 - openai (for OpenAI tracing)
+- litellm (for LiteLLM multi-provider tracing)
 - chromadb (for Chroma tracing)
 - langchain (for LangChain tracing)
 
@@ -280,18 +313,3 @@ pip install -e '.[dev]'
 pytest
 ```
 
----
-
-## License
-
-MIT
-
----
-
-## Acknowledgments
-
-Built in partnership with [Chroma](https://www.trychroma.com/) for the DeepLearning.AI course on Context Engineering.
-
-Inspired by:
-- [aisuite](https://github.com/andrewyng/aisuite) — unified AI provider interface
-- [Anthropic's Context Engineering Guide](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents)
