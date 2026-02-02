@@ -111,6 +111,7 @@ class ContextWindow:
   font-family: 'JetBrains Mono', 'IBM Plex Mono',
     'Consolas', monospace;
   line-height: 1.4;
+  position: relative;
 }}
 {s} .ced-header {{
   display: flex; justify-content: space-between;
@@ -246,6 +247,15 @@ class ContextWindow:
 }}
 {s} .ced-metadata-table th {{
   background: #F5F5F5; font-weight: 700; text-transform: uppercase; font-size: 10px;
+}}
+{s} .ced-modal-footer {{
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 16px; border-top: 3px solid black;
+}}
+{s} .ced-modal-textarea {{
+  width: 100%; min-height: 150px; font-family: inherit;
+  font-size: 12px; line-height: 1.6; padding: 16px;
+  border: 2px solid black; resize: vertical;
 }}
 {s} .ced-two-panel {{
   display: grid; grid-template-columns: 1fr auto 1fr;
@@ -525,6 +535,10 @@ class ContextWindow:
             f'onclick="cedCloseModal_{uid}()">\u2715</button>'
             f"</div>"
             f'<div class="ced-modal-body" id="ced-modal-body-{uid}"></div>'
+            f'<div class="ced-modal-footer" id="ced-modal-footer-{uid}" style="display:none;">'
+            f'<button class="ced-btn" id="ced-modal-cancel-{uid}">Cancel</button>'
+            f'<button class="ced-btn" id="ced-modal-save-{uid}">Save</button>'
+            f"</div>"
             f"</div>"
             f"</div>"
         )
@@ -591,7 +605,6 @@ class ContextWindow:
   // Tooltip
   components.forEach(function(el) {{
     el.addEventListener('mouseenter', function(e) {{
-      if (currentMode !== 'view' && currentMode !== 'explore') return;
       var compId = el.getAttribute('data-comp-id');
       var info = data[compId];
       var text = compId === '_unused' ? 'UNUSED' :
@@ -628,6 +641,7 @@ class ContextWindow:
         var header = document.getElementById('ced-modal-header-{uid}');
         var title = document.getElementById('ced-modal-title-{uid}');
         var body = document.getElementById('ced-modal-body-{uid}');
+        var footer = document.getElementById('ced-modal-footer-{uid}');
         var bg = colorMap[info.type] || '#999';
         var fg = textColorMap[info.type] || '#000';
         header.style.background = bg;
@@ -635,6 +649,7 @@ class ContextWindow:
         var icon = iconMap[info.type] || '';
         var label = labelMap[info.type] || info.type;
         title.textContent = icon + ' ' + label + ' — ' + info.id;
+        footer.style.display = 'none';
 
         var contentHtml = '<div class="ced-modal-section">' +
           '<div class="ced-modal-section-title">Content</div>' +
@@ -664,36 +679,67 @@ class ContextWindow:
       }}
 
       if (currentMode === 'edit') {{
-        // Replace with textarea
-        var origHtml = el.innerHTML;
-        var ta = document.createElement('textarea');
-        ta.value = info.content;
-        ta.style.cssText = 'width:100%;height:80px;font-family:inherit;font-size:11px;' +
-          'border:2px solid black;resize:vertical;';
-        var saveBtn = document.createElement('button');
-        saveBtn.textContent = 'Save';
-        saveBtn.className = 'ced-btn';
-        saveBtn.style.marginRight = '4px';
-        var cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.className = 'ced-btn';
-        el.innerHTML = '';
-        el.appendChild(ta);
-        var btnDiv = document.createElement('div');
-        btnDiv.style.marginTop = '4px';
-        btnDiv.appendChild(saveBtn);
-        btnDiv.appendChild(cancelBtn);
-        el.appendChild(btnDiv);
-        ta.focus();
+        // Show modal with editable textarea
+        var header = document.getElementById('ced-modal-header-{uid}');
+        var title = document.getElementById('ced-modal-title-{uid}');
+        var body = document.getElementById('ced-modal-body-{uid}');
+        var footer = document.getElementById('ced-modal-footer-{uid}');
+        var saveBtn = document.getElementById('ced-modal-save-{uid}');
+        var cancelBtn = document.getElementById('ced-modal-cancel-{uid}');
+        var bg = colorMap[info.type] || '#999';
+        var fg = textColorMap[info.type] || '#000';
+        header.style.background = bg;
+        header.style.color = fg;
+        var icon = iconMap[info.type] || '';
+        var label = labelMap[info.type] || info.type;
+        title.textContent = icon + ' EDIT: ' + label + ' — ' + info.id;
 
-        saveBtn.addEventListener('click', function(ev) {{
-          ev.stopPropagation();
-          info.content = ta.value;
-          el.innerHTML = origHtml;
+        // Editable textarea
+        var contentHtml = '<div class="ced-modal-section">' +
+          '<div class="ced-modal-section-title">Content</div>' +
+          '<textarea class="ced-modal-textarea" id="ced-edit-textarea-{uid}">' +
+          escapeHtml(info.content) + '</textarea></div>';
+
+        // Token count (read-only)
+        contentHtml += '<div class="ced-modal-section">' +
+          '<div class="ced-modal-section-title">Tokens</div>' +
+          '<div>' + info.token_count.toLocaleString() + '</div></div>';
+
+        // Metadata table (read-only)
+        var meta = info.metadata || {{}};
+        var metaKeys = Object.keys(meta);
+        if (metaKeys.length > 0) {{
+          contentHtml += '<div class="ced-modal-section">' +
+            '<div class="ced-modal-section-title">Metadata</div>' +
+            '<table class="ced-metadata-table"><tr><th>Key</th><th>Value</th></tr>';
+          metaKeys.forEach(function(k) {{
+            contentHtml += '<tr><td>' + escapeHtml(k) + '</td><td>' +
+              escapeHtml(String(meta[k])) + '</td></tr>';
+          }});
+          contentHtml += '</table></div>';
+        }}
+
+        body.innerHTML = contentHtml;
+        footer.style.display = 'flex';
+        modal.style.display = 'flex';
+
+        var textarea = document.getElementById('ced-edit-textarea-{uid}');
+        textarea.focus();
+
+        // Remove old listeners and add new ones
+        var newSaveBtn = saveBtn.cloneNode(true);
+        var newCancelBtn = cancelBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+        newSaveBtn.addEventListener('click', function() {{
+          info.content = textarea.value;
+          footer.style.display = 'none';
+          cedCloseModal_{uid}();
         }});
-        cancelBtn.addEventListener('click', function(ev) {{
-          ev.stopPropagation();
-          el.innerHTML = origHtml;
+        newCancelBtn.addEventListener('click', function() {{
+          footer.style.display = 'none';
+          cedCloseModal_{uid}();
         }});
       }}
     }});
