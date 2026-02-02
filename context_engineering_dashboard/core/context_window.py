@@ -181,6 +181,27 @@ class ContextWindow:
   background: {UNUSED_COLOR}; border-style: dashed;
   color: {UNUSED_TEXT_COLOR};
 }}
+{s} .ced-comp-unused.ced-collapsed {{
+  flex: 0.15 !important; min-width: 24px; max-width: 40px;
+}}
+{s} .ced-comp-unused.ced-collapsed .ced-label,
+{s} .ced-comp-unused.ced-collapsed .ced-tokens {{
+  display: none;
+}}
+{s} .ced-comp-unused .ced-lacuna {{
+  display: none; font-size: 12px; font-weight: 700;
+  writing-mode: vertical-rl; text-orientation: mixed;
+}}
+{s} .ced-comp-unused.ced-collapsed .ced-lacuna {{
+  display: block;
+}}
+{s} .ced-treemap .ced-comp-unused.ced-collapsed {{
+  width: 24px !important; left: auto !important; right: 16px !important;
+}}
+{s} .ced-treemap .ced-comp-unused.ced-collapsed .ced-label,
+{s} .ced-treemap .ced-comp-unused.ced-collapsed .ced-tokens {{
+  display: none;
+}}
 {s} .ced-score-badge {{
   position: absolute; top: 4px; right: 4px;
   background: black; color: white; font-size: 9px;
@@ -317,6 +338,24 @@ class ContextWindow:
   text-align: center; white-space: nowrap;
 }}
 {s} .ced-treemap-item .ced-tokens {{ font-size: 9px; margin-top: 1px; }}
+{s} .ced-component.ced-dragging {{
+  opacity: 0.5; transform: scale(1.02); z-index: 1000;
+  cursor: grabbing !important; box-shadow: 0 4px 0 black;
+}}
+{s} .ced-component.ced-drop-left::before {{
+  content: ''; position: absolute; left: -4px; top: 0; bottom: 0;
+  width: 4px; background: #0066FF;
+}}
+{s} .ced-component.ced-drop-right::after {{
+  content: ''; position: absolute; right: -4px; top: 0; bottom: 0;
+  width: 4px; background: #0066FF;
+}}
+{s} .ced-horizontal.ced-dragging-active {{
+  cursor: grabbing;
+}}
+{s} .ced-horizontal.ced-dragging-active .ced-comp-unused {{
+  opacity: 0.3; pointer-events: none;
+}}
 """
 
     # -------------------------------------------------------------- Header
@@ -380,6 +419,9 @@ class ContextWindow:
 
             icon = ""
             label = "Unused"
+            lacuna = ""
+            if r.is_unused:
+                lacuna = '<span class="ced-lacuna">\\...\\</span>'
             if not r.is_unused and r.component_type is not None:
                 icon = COMPONENT_ICONS.get(r.component_type, "")
                 label = COMPONENT_LABELS.get(r.component_type, "")
@@ -398,11 +440,15 @@ class ContextWindow:
             parts.append(
                 f'<div class="ced-treemap-item {css_cls}" '
                 f'data-comp-id="{html.escape(r.component_id or "_unused")}" '
+                f'data-orig-x="{r.x}" data-orig-y="{r.y}" '
+                f'data-orig-w="{r.width}" data-orig-h="{r.height}" '
+                f'data-tokens="{r.token_count}" '
                 f'style="left:{r.x}%;top:{r.y}px;width:{r.width}%;height:{r.height}px;">'
                 f"{score_badge}"
                 f'<span class="ced-icon">{icon}</span>'
                 f'<span class="ced-label">{html.escape(label)}</span>'
                 f'<span class="ced-tokens">{r.token_count:,}</span>'
+                f"{lacuna}"
                 f"</div>"
             )
         return "\n".join(parts)
@@ -415,6 +461,7 @@ class ContextWindow:
                 f'style="flex:{item["flex"]};" data-comp-id="_unused">'
                 f'<span class="ced-label">Unused</span>'
                 f'<span class="ced-tokens">{item["token_count"]:,}</span>'
+                f'<span class="ced-lacuna">\\...\\</span>'
                 f"</div>"
             )
 
@@ -676,6 +723,220 @@ class ContextWindow:
     if (textarea) textarea.focus();
   }}
 
+  // Recalculate treemap positions when unused is collapsed
+  function recalcTreemap(collapsed) {{
+    var treemap = container.querySelector('.ced-treemap');
+    if (!treemap) return;
+
+    var items = treemap.querySelectorAll('.ced-treemap-item');
+    var unusedEl = treemap.querySelector('[data-comp-id="_unused"]');
+    if (!unusedEl) return;
+
+    if (collapsed) {{
+      // Calculate total tokens for used components
+      var totalUsedTokens = 0;
+      items.forEach(function(el) {{
+        if (el.getAttribute('data-comp-id') !== '_unused') {{
+          totalUsedTokens += parseInt(el.getAttribute('data-tokens') || 0);
+        }}
+      }});
+
+      // Collapse unused to thin strip on right
+      var th = treemap.clientHeight - 32; // padding
+      unusedEl.style.height = th + 'px';
+      unusedEl.style.top = '16px';
+
+      // Scale other items to fill ~97% of width (leaving 3% for collapsed unused)
+      var scaleFactor = 97 / 100;
+      items.forEach(function(el) {{
+        if (el.getAttribute('data-comp-id') !== '_unused') {{
+          var origW = parseFloat(el.getAttribute('data-orig-w'));
+          var origX = parseFloat(el.getAttribute('data-orig-x'));
+          el.style.width = (origW * scaleFactor) + '%';
+          el.style.left = (origX * scaleFactor) + '%';
+        }}
+      }});
+    }} else {{
+      // Restore original positions
+      items.forEach(function(el) {{
+        el.style.width = el.getAttribute('data-orig-w') + '%';
+        el.style.left = el.getAttribute('data-orig-x') + '%';
+        el.style.height = el.getAttribute('data-orig-h') + 'px';
+        el.style.top = el.getAttribute('data-orig-y') + 'px';
+        el.style.right = '';
+      }});
+    }}
+  }}
+
+  // Drag-and-drop state
+  var dragState = {{
+    isDragging: false,
+    draggedEl: null,
+    draggedId: null,
+    startX: 0,
+    startY: 0,
+    startTime: 0,
+    currentDropTarget: null,
+    dropPosition: null
+  }};
+  var DRAG_THRESHOLD_PX = 5;
+  var DRAG_THRESHOLD_MS = 150;
+
+  function handleDragStart(el, e) {{
+    if (el.getAttribute('data-comp-id') === '_unused') return;
+    if (el.classList.contains('ced-treemap-item')) return; // Treemap not draggable
+
+    dragState.startX = e.clientX;
+    dragState.startY = e.clientY;
+    dragState.startTime = Date.now();
+    dragState.draggedEl = el;
+    dragState.draggedId = el.getAttribute('data-comp-id');
+
+    document.addEventListener('mousemove', handleDragMove);
+    document.addEventListener('mouseup', handleDragEnd);
+  }}
+
+  function handleDragMove(e) {{
+    if (!dragState.draggedEl) return;
+
+    var dx = e.clientX - dragState.startX;
+    var dy = e.clientY - dragState.startY;
+    var distance = Math.sqrt(dx * dx + dy * dy);
+    var elapsed = Date.now() - dragState.startTime;
+
+    if (!dragState.isDragging && (distance > DRAG_THRESHOLD_PX || elapsed > DRAG_THRESHOLD_MS)) {{
+      enterDragMode();
+    }}
+
+    if (dragState.isDragging) {{
+      updateDropTarget(e);
+    }}
+  }}
+
+  function enterDragMode() {{
+    dragState.isDragging = true;
+    dragState.draggedEl.classList.add('ced-dragging');
+
+    var horizontal = container.querySelector('.ced-horizontal');
+    if (horizontal) horizontal.classList.add('ced-dragging-active');
+
+    tooltip.style.display = 'none';
+  }}
+
+  function updateDropTarget(e) {{
+    var horizontal = container.querySelector('.ced-horizontal');
+    if (!horizontal) return;
+
+    clearDropIndicators();
+
+    var comps = horizontal.querySelectorAll('.ced-component:not(.ced-comp-unused):not(.ced-dragging)');
+
+    for (var i = 0; i < comps.length; i++) {{
+      var comp = comps[i];
+      var rect = comp.getBoundingClientRect();
+
+      if (e.clientX >= rect.left && e.clientX <= rect.right &&
+          e.clientY >= rect.top && e.clientY <= rect.bottom) {{
+
+        var midX = rect.left + rect.width / 2;
+        var position = e.clientX < midX ? 'before' : 'after';
+
+        dragState.currentDropTarget = comp;
+        dragState.dropPosition = position;
+
+        comp.classList.add(position === 'before' ? 'ced-drop-left' : 'ced-drop-right');
+        break;
+      }}
+    }}
+  }}
+
+  function clearDropIndicators() {{
+    var indicators = container.querySelectorAll('.ced-drop-left, .ced-drop-right');
+    indicators.forEach(function(el) {{
+      el.classList.remove('ced-drop-left', 'ced-drop-right');
+    }});
+    dragState.currentDropTarget = null;
+    dragState.dropPosition = null;
+  }}
+
+  function handleDragEnd(e) {{
+    document.removeEventListener('mousemove', handleDragMove);
+    document.removeEventListener('mouseup', handleDragEnd);
+
+    if (dragState.isDragging) {{
+      if (dragState.currentDropTarget && dragState.draggedEl) {{
+        performReorder();
+      }}
+      exitDragMode();
+    }} else {{
+      dragState.draggedEl = null;
+      dragState.draggedId = null;
+    }}
+  }}
+
+  function performReorder() {{
+    var target = dragState.currentDropTarget;
+    var dragged = dragState.draggedEl;
+    var position = dragState.dropPosition;
+
+    if (!target || !dragged || target === dragged) return;
+
+    var horizontal = container.querySelector('.ced-horizontal');
+    if (!horizontal) return;
+
+    if (position === 'before') {{
+      horizontal.insertBefore(dragged, target);
+    }} else {{
+      var next = target.nextElementSibling;
+      if (next) {{
+        horizontal.insertBefore(dragged, next);
+      }} else {{
+        horizontal.appendChild(dragged);
+      }}
+    }}
+
+    updateComponentOrder();
+  }}
+
+  function exitDragMode() {{
+    if (dragState.draggedEl) {{
+      dragState.draggedEl.classList.remove('ced-dragging');
+    }}
+
+    var horizontal = container.querySelector('.ced-horizontal');
+    if (horizontal) horizontal.classList.remove('ced-dragging-active');
+
+    clearDropIndicators();
+
+    dragState.isDragging = false;
+    dragState.draggedEl = null;
+    dragState.draggedId = null;
+    dragState.startX = 0;
+    dragState.startY = 0;
+    dragState.startTime = 0;
+  }}
+
+  function updateComponentOrder() {{
+    var horizontal = container.querySelector('.ced-horizontal');
+    if (!horizontal) return;
+
+    var newOrder = [];
+    var comps = horizontal.querySelectorAll('.ced-component:not(.ced-comp-unused)');
+    comps.forEach(function(el) {{
+      var id = el.getAttribute('data-comp-id');
+      if (id && id !== '_unused') {{
+        newOrder.push(id);
+      }}
+    }});
+
+    container.setAttribute('data-component-order', JSON.stringify(newOrder));
+
+    var event = new CustomEvent('ced-reorder', {{
+      detail: {{ order: newOrder, uid: '{uid}' }}
+    }});
+    container.dispatchEvent(event);
+  }}
+
   // Save button handler
   if (saveBtn) {{
     saveBtn.addEventListener('click', function() {{
@@ -693,9 +954,15 @@ class ContextWindow:
     el.addEventListener('mouseenter', function(e) {{
       var compId = el.getAttribute('data-comp-id');
       var info = data[compId];
-      var text = compId === '_unused' ? 'UNUSED' :
-        (info ? info.type.toUpperCase().replace('_', ' ') + ' — ' +
-        info.token_count.toLocaleString() + ' TOKENS' : compId);
+      var text;
+      if (compId === '_unused') {{
+        text = el.classList.contains('ced-collapsed')
+          ? 'CLICK TO EXPAND'
+          : 'UNUSED — CLICK TO COLLAPSE';
+      }} else {{
+        text = info ? info.type.toUpperCase().replace('_', ' ') + ' — ' +
+          info.token_count.toLocaleString() + ' TOKENS' : compId;
+      }}
       tooltip.textContent = text;
       tooltip.style.display = 'block';
       var rect = el.getBoundingClientRect();
@@ -708,13 +975,25 @@ class ContextWindow:
       tooltip.style.display = 'none';
     }});
 
-    // Click → Modal (view mode, click text to edit)
+    // Click → Toggle unused collapse OR open modal (skip if dragging)
     el.addEventListener('click', function() {{
+      if (dragState.isDragging) return;
+
       var compId = el.getAttribute('data-comp-id');
-      if (compId === '_unused') return;
+      if (compId === '_unused') {{
+        el.classList.toggle('ced-collapsed');
+        recalcTreemap(el.classList.contains('ced-collapsed'));
+        return;
+      }}
       var info = data[compId];
       if (!info) return;
       showModal(info);
+    }});
+
+    // Mousedown → Start potential drag (horizontal layout only)
+    el.addEventListener('mousedown', function(e) {{
+      if (e.button !== 0) return;
+      handleDragStart(el, e);
     }});
   }});
 

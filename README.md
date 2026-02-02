@@ -131,6 +131,7 @@ diff.sankey()
 | **Hover** | Tooltip with component type and token count |
 | **Click** | Modal with full content and metadata |
 | **Click text in modal** | Switch to edit mode (Save button appears) |
+| **Click unused space** | Collapse/expand to focus on filled components |
 
 ---
 

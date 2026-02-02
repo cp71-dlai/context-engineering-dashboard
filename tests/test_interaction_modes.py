@@ -168,3 +168,104 @@ def test_text_scrollbar_css():
     assert "ced-modal-text" in h
     assert "overflow-y: auto" in h
     assert "max-height:" in h
+
+
+def test_unused_space_collapsible():
+    """Unused space can be collapsed by clicking."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    # CSS for collapsed state
+    assert "ced-collapsed" in h
+    # Lacuna element for collapsed view
+    assert "ced-lacuna" in h
+    # Toggle logic in JS
+    assert "classList.toggle" in h
+
+
+def test_unused_collapse_tooltip():
+    """Unused space shows different tooltip based on collapsed state."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "CLICK TO EXPAND" in h
+    assert "CLICK TO COLLAPSE" in h
+
+
+def test_treemap_data_attributes():
+    """Treemap items have data attributes for original positions."""
+    ctx = ContextWindow(trace=_make_trace(), layout="treemap")
+    h = ctx.to_html()
+    assert "data-orig-x=" in h
+    assert "data-orig-y=" in h
+    assert "data-orig-w=" in h
+    assert "data-orig-h=" in h
+    assert "data-tokens=" in h
+
+
+def test_treemap_collapse_function():
+    """Treemap has recalcTreemap function for collapse/expand."""
+    ctx = ContextWindow(trace=_make_trace(), layout="treemap")
+    h = ctx.to_html()
+    assert "recalcTreemap" in h
+    assert "recalcTreemap(el.classList.contains" in h
+
+
+def test_treemap_collapse_css():
+    """Treemap has CSS for collapsed unused space."""
+    ctx = ContextWindow(trace=_make_trace(), layout="treemap")
+    h = ctx.to_html()
+    assert "ced-treemap .ced-comp-unused.ced-collapsed" in h
+
+
+def test_treemap_lacuna():
+    """Treemap unused space has lacuna element."""
+    ctx = ContextWindow(trace=_make_trace(), layout="treemap")
+    h = ctx.to_html()
+    assert "ced-lacuna" in h
+
+
+def test_drag_css_classes_present():
+    """CSS should include drag-related classes."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "ced-dragging" in h
+    assert "ced-drop-left" in h
+    assert "ced-drop-right" in h
+
+
+def test_drag_threshold_constants():
+    """JS should include drag threshold constants."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "DRAG_THRESHOLD_PX" in h
+    assert "DRAG_THRESHOLD_MS" in h
+
+
+def test_mousedown_handler_present():
+    """Mousedown handler should be present for drag initiation."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "mousedown" in h
+    assert "handleDragStart" in h
+
+
+def test_drag_reorder_functions():
+    """DOM reordering functions should be present."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "performReorder" in h
+    assert "updateComponentOrder" in h
+
+
+def test_drag_state_check_in_click():
+    """Click handler should check drag state to prevent modal during drag."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "dragState.isDragging" in h
+
+
+def test_drag_custom_event():
+    """Custom event should be emitted on reorder."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "ced-reorder" in h
+    assert "data-component-order" in h
