@@ -1,4 +1,10 @@
-"""Tests for interaction mode JS and HTML in ContextWindow."""
+"""Tests for gesture-based interactions in ContextWindow.
+
+Interaction model:
+- Hover → Tooltip (component type + token count)
+- Click → Read-only modal (full content and metadata)
+- Double-click → Editable modal (with Save/Cancel)
+"""
 
 from context_engineering_dashboard.core.context_window import ContextWindow
 from context_engineering_dashboard.core.trace import (
@@ -29,7 +35,7 @@ def _make_trace():
 
 
 def test_modal_overlay_present():
-    ctx = ContextWindow(trace=_make_trace(), mode="explore")
+    ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
     assert "ced-modal-overlay" in h
     assert "ced-modal" in h
@@ -38,27 +44,54 @@ def test_modal_overlay_present():
     assert "ced-modal-close" in h
 
 
-def test_tooltip_js_present():
+def test_tooltip_on_hover():
+    """Hover shows tooltip with component type and tokens."""
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
     assert "mouseenter" in h
     assert "mouseleave" in h
     assert "ced-tooltip" in h
+    # Tooltip text includes type and token count
+    assert "TOKENS" in h
 
 
-def test_dblclick_handlers():
+def test_click_opens_readonly_modal():
+    """Single click opens read-only modal."""
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
-    assert "dblclick" in h
+    # Click handler present
+    assert "addEventListener('click'" in h
+    # showModal called with false (not editable)
+    assert "showModal(info, false)" in h
 
 
-def test_mode_buttons_present():
+def test_dblclick_opens_editable_modal():
+    """Double-click opens editable modal."""
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
-    assert 'data-mode="view"' in h
-    assert 'data-mode="explore"' in h
-    assert 'data-mode="edit"' in h
-    assert "cedSetMode_" in h
+    # Double-click handler present
+    assert "addEventListener('dblclick'" in h
+    # showModal called with true (editable)
+    assert "showModal(info, true)" in h
+
+
+def test_editable_modal_has_save_cancel():
+    """Editable modal includes Save and Cancel buttons."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "ced-modal-footer" in h
+    assert "Save" in h
+    assert "Cancel" in h
+    assert "ced-modal-save" in h
+    assert "ced-modal-cancel" in h
+
+
+def test_editable_modal_has_textarea():
+    """Editable modal includes textarea for content editing."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "ced-modal-textarea" in h
+    assert "ced-edit-textarea" in h
 
 
 def test_component_data_js_object():
@@ -90,32 +123,6 @@ def test_json_escaping_in_component_data():
     assert "\\n" in h
 
 
-def test_explore_mode_active_button():
-    ctx = ContextWindow(trace=_make_trace(), mode="explore")
-    h = ctx.to_html()
-    # The explore button should be active
-    assert 'data-mode="explore"' in h
-    # Check that explore button has ced-active class near it
-    idx = h.find('data-mode="explore"')
-    assert idx > 0
-    preceding = h[max(0, idx - 80) : idx]
-    assert "ced-active" in preceding
-
-
-def test_edit_mode_textarea_in_js():
-    ctx = ContextWindow(trace=_make_trace(), mode="edit")
-    h = ctx.to_html()
-    assert "textarea" in h
-    assert "Save" in h
-    assert "Cancel" in h
-
-
-def test_highlight_class_in_js():
-    ctx = ContextWindow(trace=_make_trace())
-    h = ctx.to_html()
-    assert "ced-highlighted" in h
-
-
 def test_modal_close_function():
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
@@ -123,7 +130,7 @@ def test_modal_close_function():
     assert f"cedCloseModal_{uid}" in h
 
 
-def test_metadata_table_in_js():
+def test_metadata_table_in_modal():
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
     assert "ced-metadata-table" in h
@@ -134,3 +141,28 @@ def test_color_map_in_js():
     h = ctx.to_html()
     assert "colorMap" in h
     assert "#FF6B00" in h
+
+
+def test_no_mode_buttons():
+    """Mode buttons should not exist - gestures replace modes."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert 'data-mode="view"' not in h
+    assert 'data-mode="explore"' not in h
+    assert 'data-mode="edit"' not in h
+    assert "cedSetMode_" not in h
+
+
+def test_no_highlight_class():
+    """Highlight class removed - not needed with gesture-based UX."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "ced-highlighted" not in h
+
+
+def test_header_has_settings_button():
+    """Header should have settings gear button."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "ced-header" in h
+    assert "\u2699" in h  # gear icon

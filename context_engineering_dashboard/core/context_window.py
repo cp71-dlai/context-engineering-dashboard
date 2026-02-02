@@ -27,28 +27,30 @@ class ContextWindow:
         The trace data to visualize.
     context_limit : int, optional
         Override the trace's context_limit for display.
-    mode : str
-        Interaction mode: "view", "explore", or "edit".
     layout : str
         Layout algorithm: "horizontal" or "treemap".
     show_available_pool : bool
         Show Chroma available pool two-panel view.
     show_patterns : bool
         Show pattern analysis overlay.
+
+    Interactions
+    ------------
+    - Hover: Tooltip with component type and token count
+    - Click: Read-only modal with full content and metadata
+    - Double-click: Editable modal with Save/Cancel buttons
     """
 
     def __init__(
         self,
         trace: ContextTrace,
         context_limit: Optional[int] = None,
-        mode: str = "view",
         layout: str = "horizontal",
         show_available_pool: bool = False,
         show_patterns: bool = False,
     ) -> None:
         self.trace = trace
         self.context_limit = context_limit or trace.context_limit
-        self.mode = mode.lower()
         self.layout = layout.lower()
         self.show_available_pool = show_available_pool
         self.show_patterns = show_patterns
@@ -203,15 +205,15 @@ class ContextWindow:
   white-space: nowrap; z-index: 100;
   font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Consolas', monospace;
 }}
-{s} .ced-highlighted {{ outline: 3px solid #FF0000; outline-offset: -3px; }}
 {s} .ced-modal-overlay {{
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  min-height: 500px;
   background: rgba(0,0,0,0.5); display: flex;
   align-items: center; justify-content: center; z-index: 1000;
 }}
 {s} .ced-modal {{
   background: white; border: 3px solid black; width: 600px;
-  max-height: 80vh; display: flex; flex-direction: column;
+  max-width: 90%; max-height: 450px; display: flex; flex-direction: column;
   font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Consolas', monospace;
 }}
 {s} .ced-modal-header {{
@@ -227,7 +229,7 @@ class ContextWindow:
   font-family: inherit;
 }}
 {s} .ced-modal-body {{
-  padding: 16px; overflow-y: auto; max-height: 400px;
+  padding: 16px; overflow-y: auto; max-height: 350px;
 }}
 {s} .ced-modal-section {{ margin-bottom: 16px; }}
 {s} .ced-modal-section-title {{
@@ -309,20 +311,12 @@ class ContextWindow:
 
     # -------------------------------------------------------------- Header
     def _header_html(self, uid: str) -> str:
-        modes = ["view", "explore", "edit"]
-        btns = []
-        for m in modes:
-            active = " ced-active" if m == self.mode else ""
-            btns.append(
-                f'<button class="ced-btn{active}" '
-                f'data-mode="{m}" onclick="cedSetMode_{uid}(\'{m}\')">'
-                f"{m.capitalize()}</button>"
-            )
-        btns.append('<button class="ced-btn">\u2699</button>')
         return (
             f'<div class="ced-header">'
             f'<span class="ced-title">Context Window</span>'
-            f'<div class="ced-controls">{"".join(btns)}</div>'
+            f'<div class="ced-controls">'
+            f'<button class="ced-btn">\u2699</button>'
+            f"</div>"
             f"</div>"
         )
 
@@ -563,7 +557,6 @@ class ContextWindow:
 (function() {{
   var container = document.getElementById('ced-{uid}');
   if (!container) return;
-  var currentMode = '{self.mode}';
   var tooltip = document.getElementById('ced-tooltip-{uid}');
   var modal = document.getElementById('ced-modal-{uid}');
   var data = typeof cedData_{uid} !== 'undefined' ? cedData_{uid} : {{}};
@@ -576,18 +569,6 @@ class ContextWindow:
 
   // Get all component elements
   var components = container.querySelectorAll('.ced-component, .ced-treemap-item');
-
-  // Mode switching
-  window.cedSetMode_{uid} = function(mode) {{
-    currentMode = mode;
-    var btns = container.querySelectorAll('.ced-btn[data-mode]');
-    btns.forEach(function(b) {{
-      b.classList.toggle('ced-active', b.getAttribute('data-mode') === mode);
-    }});
-    // Reset state
-    components.forEach(function(c) {{ c.classList.remove('ced-highlighted'); }});
-    cedCloseModal_{uid}();
-  }};
 
   // Layout toggle
   window.cedToggleLayout_{uid} = function(layout) {{
@@ -602,8 +583,87 @@ class ContextWindow:
     if (modal) modal.style.display = 'none';
   }};
 
-  // Tooltip
+  // Helper to show modal content
+  function showModal(info, editable) {{
+    var header = document.getElementById('ced-modal-header-{uid}');
+    var title = document.getElementById('ced-modal-title-{uid}');
+    var body = document.getElementById('ced-modal-body-{uid}');
+    var footer = document.getElementById('ced-modal-footer-{uid}');
+    var bg = colorMap[info.type] || '#999';
+    var fg = textColorMap[info.type] || '#000';
+    header.style.background = bg;
+    header.style.color = fg;
+    var icon = iconMap[info.type] || '';
+    var label = labelMap[info.type] || info.type;
+    title.textContent = icon + ' ' + (editable ? 'EDIT: ' : '') + label + ' — ' + info.id;
+
+    var contentHtml;
+    if (editable) {{
+      // Editable textarea
+      contentHtml = '<div class="ced-modal-section">' +
+        '<div class="ced-modal-section-title">Content</div>' +
+        '<textarea class="ced-modal-textarea" id="ced-edit-textarea-{uid}">' +
+        escapeHtml(info.content) + '</textarea></div>';
+    }} else {{
+      // Read-only content
+      contentHtml = '<div class="ced-modal-section">' +
+        '<div class="ced-modal-section-title">Content</div>' +
+        '<div class="ced-modal-text">' + escapeHtml(info.content) + '</div></div>';
+    }}
+
+    // Token count
+    contentHtml += '<div class="ced-modal-section">' +
+      '<div class="ced-modal-section-title">Tokens</div>' +
+      '<div>' + info.token_count.toLocaleString() + '</div></div>';
+
+    // Metadata table
+    var meta = info.metadata || {{}};
+    var metaKeys = Object.keys(meta);
+    if (metaKeys.length > 0) {{
+      contentHtml += '<div class="ced-modal-section">' +
+        '<div class="ced-modal-section-title">Metadata</div>' +
+        '<table class="ced-metadata-table"><tr><th>Key</th><th>Value</th></tr>';
+      metaKeys.forEach(function(k) {{
+        contentHtml += '<tr><td>' + escapeHtml(k) + '</td><td>' +
+          escapeHtml(String(meta[k])) + '</td></tr>';
+      }});
+      contentHtml += '</table></div>';
+    }}
+
+    body.innerHTML = contentHtml;
+
+    if (editable) {{
+      footer.style.display = 'flex';
+      var textarea = document.getElementById('ced-edit-textarea-{uid}');
+      textarea.focus();
+
+      // Set up save/cancel buttons
+      var saveBtn = document.getElementById('ced-modal-save-{uid}');
+      var cancelBtn = document.getElementById('ced-modal-cancel-{uid}');
+      var newSaveBtn = saveBtn.cloneNode(true);
+      var newCancelBtn = cancelBtn.cloneNode(true);
+      saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+      cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+      newSaveBtn.addEventListener('click', function() {{
+        info.content = textarea.value;
+        footer.style.display = 'none';
+        cedCloseModal_{uid}();
+      }});
+      newCancelBtn.addEventListener('click', function() {{
+        footer.style.display = 'none';
+        cedCloseModal_{uid}();
+      }});
+    }} else {{
+      footer.style.display = 'none';
+    }}
+
+    modal.style.display = 'flex';
+  }}
+
+  // Event handlers for each component
   components.forEach(function(el) {{
+    // Hover → Tooltip
     el.addEventListener('mouseenter', function(e) {{
       var compId = el.getAttribute('data-comp-id');
       var info = data[compId];
@@ -622,126 +682,22 @@ class ContextWindow:
       tooltip.style.display = 'none';
     }});
 
-    // Click — Explore mode highlight
+    // Click → Read-only modal
     el.addEventListener('click', function() {{
-      if (currentMode !== 'explore') return;
-      components.forEach(function(c) {{ c.classList.remove('ced-highlighted'); }});
-      el.classList.add('ced-highlighted');
+      var compId = el.getAttribute('data-comp-id');
+      if (compId === '_unused') return;
+      var info = data[compId];
+      if (!info) return;
+      showModal(info, false);
     }});
 
-    // Double-click — Explore modal or Edit textarea
+    // Double-click → Editable modal
     el.addEventListener('dblclick', function() {{
       var compId = el.getAttribute('data-comp-id');
       if (compId === '_unused') return;
       var info = data[compId];
       if (!info) return;
-
-      if (currentMode === 'explore') {{
-        // Show modal
-        var header = document.getElementById('ced-modal-header-{uid}');
-        var title = document.getElementById('ced-modal-title-{uid}');
-        var body = document.getElementById('ced-modal-body-{uid}');
-        var footer = document.getElementById('ced-modal-footer-{uid}');
-        var bg = colorMap[info.type] || '#999';
-        var fg = textColorMap[info.type] || '#000';
-        header.style.background = bg;
-        header.style.color = fg;
-        var icon = iconMap[info.type] || '';
-        var label = labelMap[info.type] || info.type;
-        title.textContent = icon + ' ' + label + ' — ' + info.id;
-        footer.style.display = 'none';
-
-        var contentHtml = '<div class="ced-modal-section">' +
-          '<div class="ced-modal-section-title">Content</div>' +
-          '<div class="ced-modal-text">' + escapeHtml(info.content) + '</div></div>';
-
-        // Token count
-        contentHtml += '<div class="ced-modal-section">' +
-          '<div class="ced-modal-section-title">Tokens</div>' +
-          '<div>' + info.token_count.toLocaleString() + '</div></div>';
-
-        // Metadata table
-        var meta = info.metadata || {{}};
-        var metaKeys = Object.keys(meta);
-        if (metaKeys.length > 0) {{
-          contentHtml += '<div class="ced-modal-section">' +
-            '<div class="ced-modal-section-title">Metadata</div>' +
-            '<table class="ced-metadata-table"><tr><th>Key</th><th>Value</th></tr>';
-          metaKeys.forEach(function(k) {{
-            contentHtml += '<tr><td>' + escapeHtml(k) + '</td><td>' +
-              escapeHtml(String(meta[k])) + '</td></tr>';
-          }});
-          contentHtml += '</table></div>';
-        }}
-
-        body.innerHTML = contentHtml;
-        modal.style.display = 'flex';
-      }}
-
-      if (currentMode === 'edit') {{
-        // Show modal with editable textarea
-        var header = document.getElementById('ced-modal-header-{uid}');
-        var title = document.getElementById('ced-modal-title-{uid}');
-        var body = document.getElementById('ced-modal-body-{uid}');
-        var footer = document.getElementById('ced-modal-footer-{uid}');
-        var saveBtn = document.getElementById('ced-modal-save-{uid}');
-        var cancelBtn = document.getElementById('ced-modal-cancel-{uid}');
-        var bg = colorMap[info.type] || '#999';
-        var fg = textColorMap[info.type] || '#000';
-        header.style.background = bg;
-        header.style.color = fg;
-        var icon = iconMap[info.type] || '';
-        var label = labelMap[info.type] || info.type;
-        title.textContent = icon + ' EDIT: ' + label + ' — ' + info.id;
-
-        // Editable textarea
-        var contentHtml = '<div class="ced-modal-section">' +
-          '<div class="ced-modal-section-title">Content</div>' +
-          '<textarea class="ced-modal-textarea" id="ced-edit-textarea-{uid}">' +
-          escapeHtml(info.content) + '</textarea></div>';
-
-        // Token count (read-only)
-        contentHtml += '<div class="ced-modal-section">' +
-          '<div class="ced-modal-section-title">Tokens</div>' +
-          '<div>' + info.token_count.toLocaleString() + '</div></div>';
-
-        // Metadata table (read-only)
-        var meta = info.metadata || {{}};
-        var metaKeys = Object.keys(meta);
-        if (metaKeys.length > 0) {{
-          contentHtml += '<div class="ced-modal-section">' +
-            '<div class="ced-modal-section-title">Metadata</div>' +
-            '<table class="ced-metadata-table"><tr><th>Key</th><th>Value</th></tr>';
-          metaKeys.forEach(function(k) {{
-            contentHtml += '<tr><td>' + escapeHtml(k) + '</td><td>' +
-              escapeHtml(String(meta[k])) + '</td></tr>';
-          }});
-          contentHtml += '</table></div>';
-        }}
-
-        body.innerHTML = contentHtml;
-        footer.style.display = 'flex';
-        modal.style.display = 'flex';
-
-        var textarea = document.getElementById('ced-edit-textarea-{uid}');
-        textarea.focus();
-
-        // Remove old listeners and add new ones
-        var newSaveBtn = saveBtn.cloneNode(true);
-        var newCancelBtn = cancelBtn.cloneNode(true);
-        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-
-        newSaveBtn.addEventListener('click', function() {{
-          info.content = textarea.value;
-          footer.style.display = 'none';
-          cedCloseModal_{uid}();
-        }});
-        newCancelBtn.addEventListener('click', function() {{
-          footer.style.display = 'none';
-          cedCloseModal_{uid}();
-        }});
-      }}
+      showModal(info, true);
     }});
   }});
 

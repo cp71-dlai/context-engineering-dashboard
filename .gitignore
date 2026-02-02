@@ -35,6 +35,7 @@ venv/
 .venv*/
 .python-version
 
+
 # dev 
 
 .devcontainer/

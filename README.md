@@ -16,7 +16,7 @@ Generate diff across multiple traces.
 ## Features
 
 - **Proportional visualization**: Component sizes reflect token usage
-- **Three interaction modes**: View → Explore → Edit
+- **Intuitive gestures**: Hover for tooltip, click for details, double-click to edit
 - **Chroma-native**: See retrieval scores, metadata, and selection decisions
 - **Diff view**: Sankey diagrams show before/after compaction
 
@@ -103,7 +103,6 @@ results = traced.query(query_texts=["How does embedding work?"], n_results=10)
 ctx = ContextWindow(
     trace=traced.get_trace(),
     context_limit=128_000,
-    mode="explore",
     show_available_pool=True
 )
 ctx.display()
@@ -125,23 +124,13 @@ diff.sankey()
 
 ---
 
-## Interaction Modes
+## Interactions
 
-| Mode | Single Click | Double Click |
-|------|--------------|--------------|
-| **View** | Tooltip (name, tokens) | — |
-| **Explore** | Tooltip | Modal with full text, metadata |
-| **Edit** | Select | Inline editor, re-run button |
-
-```python
-# Set mode
-ctx = ContextWindow(trace=trace, mode="explore")
-
-# Edit mode with callback
-ctx = ContextWindow(trace=trace, mode="edit")
-ctx.on_rerun(callback=lambda t: client.chat.completions.create(**t))
-ctx.display()
-```
+| Gesture | Action |
+|---------|--------|
+| **Hover** | Tooltip with component type and token count |
+| **Click** | Read-only modal with full content and metadata |
+| **Double-click** | Editable modal with Save/Cancel buttons |
 
 ---
 
@@ -163,9 +152,9 @@ Toggle between layouts via the settings panel (gear icon).
 
 The dashboard provides special handling for Chroma traces:
 
-**VIEW mode**: Score badges visible on each document
+**Score badges**: Visible on each RAG document component
 
-**EXPLORE mode** (double-click):
+**Click any document** to see:
 - Full document text
 - Similarity score
 - Metadata table
@@ -189,7 +178,6 @@ ctx = ContextWindow(
 ctx = ContextWindow(
     trace=trace,
     context_limit=128_000,      # Model's max context
-    mode="explore",             # "view" | "explore" | "edit"
     layout="horizontal",        # "horizontal" | "treemap"
     show_patterns=False,        # Accessibility patterns for colorblind users
     show_available_pool=True,   # Show full Chroma retrieval results
@@ -260,7 +248,6 @@ trace = traced_collection.get_trace()
 ContextWindow(
     trace: ContextTrace,
     context_limit: int,
-    mode: str = "view",
     layout: str = "horizontal",
     show_patterns: bool = False,
     show_available_pool: bool = True,
@@ -268,7 +255,6 @@ ContextWindow(
 
 # Methods
 .display()                    # Render in notebook
-.on_rerun(callback)           # Set edit mode callback
 .to_html()                    # Get raw HTML string
 ```
 
