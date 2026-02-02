@@ -28,7 +28,7 @@ class _MockLLMResult:
 
 class TestLangChainTracer:
     def test_retriever_docs_become_rag_components(self):
-        """Retrieved documents should become RAG_DOCUMENT components."""
+        """Retrieved documents should become RAG components."""
         tracer = LangChainTracer()
         with tracer:
             handler = tracer.handler
@@ -42,7 +42,7 @@ class TestLangChainTracer:
 
         trace = tracer.result
         assert trace is not None
-        rag_comps = [c for c in trace.components if c.type == ComponentType.RAG_DOCUMENT]
+        rag_comps = [c for c in trace.components if c.type == ComponentType.RAG]
         assert len(rag_comps) == 2
         assert rag_comps[0].content == "Document about Chroma"
         assert rag_comps[0].metadata == {"source": "chroma.md"}

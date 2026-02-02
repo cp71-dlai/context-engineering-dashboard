@@ -94,7 +94,7 @@ def test_get_trace_builds_context_trace():
     types = [c.type for c in trace.components]
     assert ComponentType.SYSTEM_PROMPT in types
     assert ComponentType.USER_MESSAGE in types
-    assert ComponentType.RAG_DOCUMENT in types
+    assert ComponentType.RAG in types
     assert trace.total_tokens > 0
     assert trace.session_id != ""
     assert trace.timestamp != ""
@@ -103,12 +103,12 @@ def test_get_trace_builds_context_trace():
 def test_add_component():
     coll = _MockCollection()
     traced = TracedCollection(coll)
-    comp = ContextComponent("custom_1", ComponentType.MEMORY, "Remember this.", 10)
+    comp = ContextComponent("custom_1", ComponentType.SCRATCHPAD, "Remember this.", 10)
     traced.add_component(comp)
 
     trace = traced.get_trace()
     assert len(trace.components) == 1
-    assert trace.components[0].type == ComponentType.MEMORY
+    assert trace.components[0].type == ComponentType.SCRATCHPAD
 
 
 def test_count_tokens():

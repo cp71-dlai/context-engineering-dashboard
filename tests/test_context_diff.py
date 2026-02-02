@@ -18,7 +18,7 @@ def _make_before():
         components=[
             ContextComponent("sys_1", ComponentType.SYSTEM_PROMPT, "System", 4000),
             ContextComponent("hist_1", ComponentType.CHAT_HISTORY, "History", 20000),
-            ContextComponent("rag_1", ComponentType.RAG_DOCUMENT, "RAG docs", 15000),
+            ContextComponent("rag_1", ComponentType.RAG, "RAG docs", 15000),
             ContextComponent("tool_1", ComponentType.TOOL, "Tool output", 1000),
         ],
         total_tokens=40000,
@@ -31,7 +31,7 @@ def _make_after():
         components=[
             ContextComponent("sys_1", ComponentType.SYSTEM_PROMPT, "System", 4000),
             ContextComponent("hist_1", ComponentType.CHAT_HISTORY, "Condensed", 8000),
-            ContextComponent("rag_1", ComponentType.RAG_DOCUMENT, "Trimmed RAG", 10000),
+            ContextComponent("rag_1", ComponentType.RAG, "Trimmed RAG", 10000),
             ContextComponent("tool_1", ComponentType.TOOL, "Tool output", 1000),
         ],
         total_tokens=23000,
@@ -121,7 +121,7 @@ def test_removed_component():
     before = ContextTrace(
         context_limit=10000,
         components=[
-            ContextComponent("mem_1", ComponentType.MEMORY, "Memory", 3000),
+            ContextComponent("mem_1", ComponentType.SCRATCHPAD, "Memory", 3000),
             ContextComponent("sys_1", ComponentType.SYSTEM_PROMPT, "System", 2000),
         ],
         total_tokens=5000,
@@ -152,7 +152,7 @@ def test_new_component():
         context_limit=10000,
         components=[
             ContextComponent("sys_1", ComponentType.SYSTEM_PROMPT, "System", 2000),
-            ContextComponent("mem_1", ComponentType.MEMORY, "Memory", 3000),
+            ContextComponent("mem_1", ComponentType.SCRATCHPAD, "Memory", 3000),
         ],
         total_tokens=5000,
     )

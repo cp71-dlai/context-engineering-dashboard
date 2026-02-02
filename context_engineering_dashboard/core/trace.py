@@ -18,10 +18,10 @@ class ComponentType(Enum):
     SYSTEM_PROMPT = "system_prompt"
     USER_MESSAGE = "user_message"
     CHAT_HISTORY = "chat_history"
-    RAG_DOCUMENT = "rag_document"
+    RAG = "rag"
     TOOL = "tool"
-    FEW_SHOT = "few_shot"
-    MEMORY = "memory"
+    EXAMPLE = "example"
+    SCRATCHPAD = "scratchpad"
 
 
 @dataclass

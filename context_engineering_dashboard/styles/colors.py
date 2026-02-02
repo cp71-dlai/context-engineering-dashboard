@@ -6,50 +6,50 @@ COMPONENT_COLORS = {
     ComponentType.SYSTEM_PROMPT: "#FF6B00",
     ComponentType.USER_MESSAGE: "#0066FF",
     ComponentType.CHAT_HISTORY: "#00BFFF",
-    ComponentType.RAG_DOCUMENT: "#00AA55",
+    ComponentType.RAG: "#00AA55",
     ComponentType.TOOL: "#FFCC00",
-    ComponentType.FEW_SHOT: "#AA44FF",
-    ComponentType.MEMORY: "#00CCAA",
+    ComponentType.EXAMPLE: "#AA44FF",
+    ComponentType.SCRATCHPAD: "#00CCAA",
 }
 
 TEXT_COLORS = {
     ComponentType.SYSTEM_PROMPT: "#000000",
     ComponentType.USER_MESSAGE: "#FFFFFF",
     ComponentType.CHAT_HISTORY: "#000000",
-    ComponentType.RAG_DOCUMENT: "#FFFFFF",
+    ComponentType.RAG: "#FFFFFF",
     ComponentType.TOOL: "#000000",
-    ComponentType.FEW_SHOT: "#FFFFFF",
-    ComponentType.MEMORY: "#000000",
+    ComponentType.EXAMPLE: "#FFFFFF",
+    ComponentType.SCRATCHPAD: "#000000",
 }
 
 CSS_CLASSES = {
     ComponentType.SYSTEM_PROMPT: "ced-comp-system",
     ComponentType.USER_MESSAGE: "ced-comp-user",
     ComponentType.CHAT_HISTORY: "ced-comp-history",
-    ComponentType.RAG_DOCUMENT: "ced-comp-rag",
+    ComponentType.RAG: "ced-comp-rag",
     ComponentType.TOOL: "ced-comp-tool",
-    ComponentType.FEW_SHOT: "ced-comp-fewshot",
-    ComponentType.MEMORY: "ced-comp-memory",
+    ComponentType.EXAMPLE: "ced-comp-example",
+    ComponentType.SCRATCHPAD: "ced-comp-scratchpad",
 }
 
 COMPONENT_ICONS = {
     ComponentType.SYSTEM_PROMPT: "\u2699",  # gear
     ComponentType.USER_MESSAGE: "\U0001f4ac",  # speech bubble
     ComponentType.CHAT_HISTORY: "\U0001f550",  # clock
-    ComponentType.RAG_DOCUMENT: "\U0001f4c4",  # page
+    ComponentType.RAG: "\U0001f4c4",  # page
     ComponentType.TOOL: "\U0001f527",  # wrench
-    ComponentType.FEW_SHOT: "\U0001f4cb",  # clipboard
-    ComponentType.MEMORY: "\U0001f9e0",  # brain
+    ComponentType.EXAMPLE: "\U0001f4cb",  # clipboard
+    ComponentType.SCRATCHPAD: "\U0001f9e0",  # brain
 }
 
 COMPONENT_LABELS = {
     ComponentType.SYSTEM_PROMPT: "System",
     ComponentType.USER_MESSAGE: "User",
     ComponentType.CHAT_HISTORY: "History",
-    ComponentType.RAG_DOCUMENT: "RAG Doc",
+    ComponentType.RAG: "RAG",
     ComponentType.TOOL: "Tool",
-    ComponentType.FEW_SHOT: "Few-Shot",
-    ComponentType.MEMORY: "Memory",
+    ComponentType.EXAMPLE: "Example",
+    ComponentType.SCRATCHPAD: "Scratchpad",
 }
 
 UNUSED_COLOR = "#E0E0E0"

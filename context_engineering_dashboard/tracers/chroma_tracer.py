@@ -244,7 +244,7 @@ class TracedCollection:
                     rag_components.append(
                         ContextComponent(
                             id=result.id,
-                            type=ComponentType.RAG_DOCUMENT,
+                            type=ComponentType.RAG,
                             content=result.content,
                             token_count=result.token_count,
                             metadata={

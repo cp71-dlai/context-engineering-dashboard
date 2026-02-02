@@ -16,8 +16,8 @@ def _make_trace():
         context_limit=128000,
         components=[
             ContextComponent("sys_1", ComponentType.SYSTEM_PROMPT, "System", 2000),
-            ContextComponent("rag_1", ComponentType.RAG_DOCUMENT, "RAG 1", 8000),
-            ContextComponent("rag_2", ComponentType.RAG_DOCUMENT, "RAG 2", 3000),
+            ContextComponent("rag_1", ComponentType.RAG, "RAG 1", 8000),
+            ContextComponent("rag_2", ComponentType.RAG, "RAG 2", 3000),
             ContextComponent("hist_1", ComponentType.CHAT_HISTORY, "History", 1000),
             ContextComponent("user_1", ComponentType.USER_MESSAGE, "User", 350),
         ],

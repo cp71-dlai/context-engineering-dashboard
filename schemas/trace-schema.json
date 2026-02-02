@@ -11,12 +11,12 @@
       "type": "string",
       "enum": [
         "system_prompt",
-        "user_message", 
+        "user_message",
         "chat_history",
-        "rag_document",
+        "rag",
         "tool",
-        "few_shot",
-        "memory"
+        "example",
+        "scratchpad"
       ],
       "description": "Type of context component"
     },
@@ -307,7 +307,7 @@
         },
         {
           "id": "rag_001",
-          "type": "rag_document",
+          "type": "rag",
           "content": "# Getting Started with ChromaDB\n\nChromaDB is an open-source embedding database...",
           "token_count": 8000,
           "metadata": {

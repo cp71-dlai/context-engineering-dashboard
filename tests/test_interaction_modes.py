@@ -25,7 +25,7 @@ def _make_trace():
         ),
         ContextComponent(
             "rag_1",
-            ComponentType.RAG_DOCUMENT,
+            ComponentType.RAG,
             "Document content here.",
             8000,
             metadata={"chroma_score": 0.92, "collection": "docs"},
@@ -96,7 +96,7 @@ def test_component_data_js_object():
     assert '"sys_1"' in h
     assert '"rag_1"' in h
     assert '"system_prompt"' in h
-    assert '"rag_document"' in h
+    assert '"rag"' in h
 
 
 def test_json_escaping_in_component_data():

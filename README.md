@@ -45,7 +45,7 @@ pip install 'context-engineering-dashboard[all]'
 ### Basic Usage
 
 ```python
-from context_engineering_dashboard import ContextWindow, trace_openai
+from context_engineering_dashboard import ContextBuilder, trace_openai
 from openai import OpenAI
 
 client = OpenAI()
@@ -61,14 +61,14 @@ with trace_openai() as tracer:
     )
 
 # Visualize
-ctx = ContextWindow(trace=tracer.result, context_limit=128_000)
+ctx = ContextBuilder(trace=tracer.result, context_limit=128_000)
 ctx.display()
 ```
 
 ### With LiteLLM
 
 ```python
-from context_engineering_dashboard import ContextWindow, trace_litellm
+from context_engineering_dashboard import ContextBuilder, trace_litellm
 import litellm
 
 # Trace any LLM provider via LiteLLM (OpenAI, Claude, Gemini, etc.)
@@ -82,14 +82,14 @@ with trace_litellm() as tracer:
     )
 
 # Visualize
-ctx = ContextWindow(trace=tracer.result, context_limit=128_000)
+ctx = ContextBuilder(trace=tracer.result, context_limit=128_000)
 ctx.display()
 ```
 
 ### With Chroma RAG
 
 ```python
-from context_engineering_dashboard import ContextWindow, trace_chroma
+from context_engineering_dashboard import ContextBuilder, trace_chroma
 import chromadb
 
 client = chromadb.Client()
@@ -100,7 +100,7 @@ traced = trace_chroma(collection)
 results = traced.query(query_texts=["How does embedding work?"], n_results=10)
 
 # Build context and visualize
-ctx = ContextWindow(
+ctx = ContextBuilder(
     trace=traced.get_trace(),
     context_limit=128_000,
     show_available_pool=True
@@ -139,10 +139,10 @@ diff.sankey()
 
 ```python
 # Horizontal (default): left-to-right packing
-ctx = ContextWindow(trace=trace, layout="horizontal")
+ctx = ContextBuilder(trace=trace, layout="horizontal")
 
 # Treemap: better visibility for small components
-ctx = ContextWindow(trace=trace, layout="treemap")
+ctx = ContextBuilder(trace=trace, layout="treemap")
 ```
 
 Toggle between layouts via the settings panel (gear icon).
@@ -165,7 +165,7 @@ The dashboard provides special handling for Chroma traces:
 **Available Pool**: See all retrieved documents, not just selected ones
 
 ```python
-ctx = ContextWindow(
+ctx = ContextBuilder(
     trace=trace,
     show_available_pool=True  # Shows Chroma results that didn't make the cut
 )
@@ -176,7 +176,7 @@ ctx = ContextWindow(
 ## Configuration
 
 ```python
-ctx = ContextWindow(
+ctx = ContextBuilder(
     trace=trace,
     context_limit=128_000,      # Model's max context
     layout="horizontal",        # "horizontal" | "treemap"
@@ -207,10 +207,10 @@ trace = ContextTrace.from_json("my_trace.json")
 | System Prompt | Orange | `#FF6B00` |
 | User Message | Blue | `#0066FF` |
 | Chat History | Light Blue | `#00BFFF` |
-| RAG Document | Green | `#00AA55` |
+| RAG | Green | `#00AA55` |
 | Tool | Yellow | `#FFCC00` |
-| Few-Shot | Purple | `#AA44FF` |
-| Memory | Teal | `#00CCAA` |
+| Example | Purple | `#AA44FF` |
+| Scratchpad | Teal | `#00CCAA` |
 | Unused | Grey (dashed) | `#E0E0E0` |
 
 ---
@@ -243,10 +243,10 @@ results = traced_collection.query(...)
 trace = traced_collection.get_trace()
 ```
 
-### ContextWindow
+### ContextBuilder
 
 ```python
-ContextWindow(
+ContextBuilder(
     trace: ContextTrace,
     context_limit: int,
     layout: str = "horizontal",

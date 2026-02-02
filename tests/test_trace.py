@@ -22,10 +22,10 @@ def test_component_type_values():
     assert ComponentType.SYSTEM_PROMPT.value == "system_prompt"
     assert ComponentType.USER_MESSAGE.value == "user_message"
     assert ComponentType.CHAT_HISTORY.value == "chat_history"
-    assert ComponentType.RAG_DOCUMENT.value == "rag_document"
+    assert ComponentType.RAG.value == "rag"
     assert ComponentType.TOOL.value == "tool"
-    assert ComponentType.FEW_SHOT.value == "few_shot"
-    assert ComponentType.MEMORY.value == "memory"
+    assert ComponentType.EXAMPLE.value == "example"
+    assert ComponentType.SCRATCHPAD.value == "scratchpad"
 
 
 def test_context_component_roundtrip():
@@ -274,14 +274,14 @@ def test_utilization_full():
 def test_get_components_by_type():
     components = [
         ContextComponent("s1", ComponentType.SYSTEM_PROMPT, "sys", 100),
-        ContextComponent("r1", ComponentType.RAG_DOCUMENT, "rag1", 200),
-        ContextComponent("r2", ComponentType.RAG_DOCUMENT, "rag2", 300),
+        ContextComponent("r1", ComponentType.RAG, "rag1", 200),
+        ContextComponent("r2", ComponentType.RAG, "rag2", 300),
         ContextComponent("u1", ComponentType.USER_MESSAGE, "user", 50),
     ]
     trace = ContextTrace(context_limit=10000, components=components, total_tokens=650)
-    rag_comps = trace.get_components_by_type(ComponentType.RAG_DOCUMENT)
+    rag_comps = trace.get_components_by_type(ComponentType.RAG)
     assert len(rag_comps) == 2
-    assert all(c.type == ComponentType.RAG_DOCUMENT for c in rag_comps)
+    assert all(c.type == ComponentType.RAG for c in rag_comps)
 
     sys_comps = trace.get_components_by_type(ComponentType.SYSTEM_PROMPT)
     assert len(sys_comps) == 1

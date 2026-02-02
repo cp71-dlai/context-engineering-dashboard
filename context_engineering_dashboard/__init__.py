@@ -5,7 +5,7 @@ Context Engineering Dashboard — Visualize and debug LLM context windows in Jup
 __version__ = "0.1.0"
 
 from context_engineering_dashboard.core.context_diff import ContextDiff
-from context_engineering_dashboard.core.context_window import ContextWindow
+from context_engineering_dashboard.core.context_window import ContextBuilder, ContextWindow
 from context_engineering_dashboard.core.trace import (
     ChromaQuery,
     ChromaRetrievalResult,
@@ -55,7 +55,8 @@ __all__ = [
     "LLMTrace",
     "EmbeddingTrace",
     "ToolCall",
-    "ContextWindow",
+    "ContextBuilder",
+    "ContextWindow",  # Deprecated alias for ContextBuilder
     "ContextDiff",
     "trace_chroma",
     "trace_openai",

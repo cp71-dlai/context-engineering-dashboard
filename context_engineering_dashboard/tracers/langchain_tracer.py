@@ -112,7 +112,7 @@ def _make_handler_class() -> type:
                 components.append(
                     ContextComponent(
                         id=f"rag_{i}",
-                        type=ComponentType.RAG_DOCUMENT,
+                        type=ComponentType.RAG,
                         content=content,
                         token_count=_count_tokens(content),
                         metadata=doc.get("metadata", {}),

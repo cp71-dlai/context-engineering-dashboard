@@ -43,7 +43,7 @@ def _make_full_trace():
         ),
         ContextComponent(
             id="rag_001",
-            type=ComponentType.RAG_DOCUMENT,
+            type=ComponentType.RAG,
             content="Document content here.",
             token_count=8000,
             metadata={"source": "test.md", "chroma_score": 0.92},

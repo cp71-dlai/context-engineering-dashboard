@@ -1,11 +1,12 @@
-"""ContextWindow — main Jupyter widget for visualizing LLM context windows."""
+"""ContextBuilder — main Jupyter widget for building and visualizing LLM context windows."""
 
+import copy
 import html
 import json
 import uuid
-from typing import Optional
+from typing import List, Optional
 
-from context_engineering_dashboard.core.trace import ComponentType, ContextTrace
+from context_engineering_dashboard.core.trace import ComponentType, ContextComponent, ContextTrace
 from context_engineering_dashboard.layouts.horizontal import compute_horizontal_layout
 from context_engineering_dashboard.styles.colors import (
     COMPONENT_COLORS,
@@ -18,13 +19,19 @@ from context_engineering_dashboard.styles.colors import (
 )
 
 
-class ContextWindow:
-    """Renders a neo-brutalist visualization of a context trace in Jupyter.
+class ContextBuilder:
+    """Stateful editor for building and visualizing LLM context windows.
+
+    ContextBuilder wraps a ContextTrace and provides:
+    - Neo-brutalist visualization in Jupyter notebooks
+    - In-browser editing with persistence to the underlying trace
+    - Drag-and-drop component reordering
+    - Export of modified traces
 
     Parameters
     ----------
     trace : ContextTrace
-        The trace data to visualize.
+        The trace data to visualize and edit.
     context_limit : int, optional
         Override the trace's context_limit for display.
     layout : str
@@ -39,6 +46,15 @@ class ContextWindow:
     - Hover: Tooltip with component type and token count
     - Click: Modal with full content and metadata
     - Click on text in modal: Switch to edit mode with Save button
+    - Drag components: Reorder in horizontal layout
+
+    Examples
+    --------
+    >>> builder = ContextBuilder(trace=trace)
+    >>> builder.display()
+    >>> # After editing in browser...
+    >>> builder.apply_edit("sys_1", "New system prompt")
+    >>> new_trace = builder.get_trace()
     """
 
     def __init__(
@@ -49,12 +65,138 @@ class ContextWindow:
         show_available_pool: bool = False,
         show_patterns: bool = False,
     ) -> None:
-        self.trace = trace
+        self._original_trace = trace  # Immutable reference
+        self._working_trace = copy.deepcopy(trace)  # Mutable copy for edits
+        self._edits: dict = {}  # Track edit history
+        self._reorder: Optional[List[str]] = None  # Track reorder history
         self.context_limit = context_limit or trace.context_limit
         self.layout = layout.lower()
         self.show_available_pool = show_available_pool
         self.show_patterns = show_patterns
         self._uid = uuid.uuid4().hex[:12]
+
+    @property
+    def trace(self) -> ContextTrace:
+        """Return the working trace (for backward compatibility)."""
+        return self._working_trace
+
+    def get_trace(self) -> ContextTrace:
+        """Return a deep copy of the current working trace.
+
+        Returns
+        -------
+        ContextTrace
+            A new ContextTrace object with all current edits applied.
+        """
+        return copy.deepcopy(self._working_trace)
+
+    def apply_edit(self, component_id: str, new_content: str) -> None:
+        """Edit a component's content and recount tokens.
+
+        Parameters
+        ----------
+        component_id : str
+            The ID of the component to edit.
+        new_content : str
+            The new content for the component.
+
+        Raises
+        ------
+        KeyError
+            If the component_id is not found.
+        """
+        for comp in self._working_trace.components:
+            if comp.id == component_id:
+                old_content = comp.content
+                old_tokens = comp.token_count
+                new_tokens = self._count_tokens(new_content)
+
+                # Update component
+                # Create new component with updated values (dataclass is immutable)
+                idx = self._working_trace.components.index(comp)
+                self._working_trace.components[idx] = ContextComponent(
+                    id=comp.id,
+                    type=comp.type,
+                    content=new_content,
+                    token_count=new_tokens,
+                    metadata=comp.metadata,
+                )
+
+                # Update total tokens
+                self._working_trace.total_tokens += new_tokens - old_tokens
+
+                # Track edit
+                self._edits[component_id] = {
+                    "original": old_content,
+                    "edited": new_content,
+                    "original_tokens": old_tokens,
+                    "new_tokens": new_tokens,
+                }
+                return
+
+        raise KeyError(f"Component '{component_id}' not found")
+
+    def apply_reorder(self, new_order: List[str]) -> None:
+        """Reorder components according to the given order.
+
+        Parameters
+        ----------
+        new_order : List[str]
+            List of component IDs in the desired order.
+        """
+        # Build a map of id -> component
+        comp_map = {c.id: c for c in self._working_trace.components}
+
+        # Reorder components
+        reordered = []
+        for comp_id in new_order:
+            if comp_id in comp_map:
+                reordered.append(comp_map[comp_id])
+
+        # Add any components not in new_order (shouldn't happen, but be safe)
+        for comp in self._working_trace.components:
+            if comp.id not in new_order:
+                reordered.append(comp)
+
+        self._working_trace.components = reordered
+        self._reorder = new_order
+
+    def reset(self) -> None:
+        """Reset to the original trace, discarding all edits."""
+        self._working_trace = copy.deepcopy(self._original_trace)
+        self._edits = {}
+        self._reorder = None
+
+    def has_changes(self) -> bool:
+        """Check if any edits have been made.
+
+        Returns
+        -------
+        bool
+            True if the trace has been modified.
+        """
+        return bool(self._edits) or self._reorder is not None
+
+    def to_json(self, path: str) -> None:
+        """Save the working trace to a JSON file.
+
+        Parameters
+        ----------
+        path : str
+            File path to save to.
+        """
+        self._working_trace.to_json(path)
+
+    def _count_tokens(self, content: str) -> int:
+        """Count tokens in content using tiktoken."""
+        try:
+            import tiktoken
+
+            encoding = tiktoken.get_encoding("cl100k_base")
+            return len(encoding.encode(content))
+        except Exception:
+            # Fallback: rough estimate
+            return len(content) // 4
 
     def _repr_html_(self) -> str:
         """Jupyter auto-display."""
@@ -306,7 +448,7 @@ class ContextWindow:
   border: 2px solid black; margin-bottom: 4px; font-size: 11px;
 }}
 {s} .ced-doc-item.ced-selected {{
-  background: {COMPONENT_COLORS[ComponentType.RAG_DOCUMENT]};
+  background: {COMPONENT_COLORS[ComponentType.RAG]};
   color: white;
 }}
 {s} .ced-doc-item.ced-unselected {{
@@ -362,7 +504,7 @@ class ContextWindow:
     def _header_html(self, uid: str) -> str:
         return (
             f'<div class="ced-header">'
-            f'<span class="ced-title">Context Window</span>'
+            f'<span class="ced-title">Context Builder</span>'
             f'<div class="ced-controls">'
             f'<button class="ced-btn">\u2699</button>'
             f"</div>"
@@ -378,7 +520,7 @@ class ContextWindow:
 
         parts = [
             '<div class="ced-context-window">',
-            '<span class="ced-window-label">Context Window</span>',
+            '<span class="ced-window-label">Context Builder</span>',
             f'<span class="ced-token-counter">{token_str}</span>',
         ]
 
@@ -527,7 +669,7 @@ class ContextWindow:
                 )
         # Other components
         for comp in self.trace.components:
-            if comp.type != ComponentType.RAG_DOCUMENT:
+            if comp.type != ComponentType.RAG:
                 css_cls = CSS_CLASSES.get(comp.type, "")
                 icon = COMPONENT_ICONS.get(comp.type, "")
                 label = COMPONENT_LABELS.get(comp.type, "")
@@ -937,16 +1079,34 @@ class ContextWindow:
     container.dispatchEvent(event);
   }}
 
-  // Save button handler
+  // Save button handler - persist edits to data attributes
   if (saveBtn) {{
     saveBtn.addEventListener('click', function() {{
       var textarea = document.getElementById('ced-edit-textarea-{uid}');
       if (textarea && currentInfo) {{
+        var edits = JSON.parse(container.getAttribute('data-edits') || '{{}}');
+        edits[currentInfo.id] = {{
+          original: currentInfo.content,
+          edited: textarea.value,
+          timestamp: new Date().toISOString()
+        }};
+        container.setAttribute('data-edits', JSON.stringify(edits));
         currentInfo.content = textarea.value;
+        data[currentInfo.id].content = textarea.value;
+        container.setAttribute('data-has-changes', 'true');
       }}
       cedCloseModal_{uid}();
     }});
   }}
+
+  // State retrieval function for Python sync
+  window.cedGetState_{uid} = function() {{
+    return {{
+      edits: JSON.parse(container.getAttribute('data-edits') || '{{}}'),
+      componentOrder: JSON.parse(container.getAttribute('data-component-order') || '[]'),
+      hasChanges: container.getAttribute('data-has-changes') === 'true'
+    }};
+  }};
 
   // Event handlers for each component
   components.forEach(function(el) {{
@@ -1011,3 +1171,7 @@ class ContextWindow:
   }}
 }})();
 """
+
+
+# Backward compatibility alias
+ContextWindow = ContextBuilder

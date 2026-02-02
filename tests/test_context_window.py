@@ -18,14 +18,14 @@ def _make_trace():
         ),
         ContextComponent(
             "rag_1",
-            ComponentType.RAG_DOCUMENT,
+            ComponentType.RAG,
             "Document content here.",
             8000,
             metadata={"chroma_score": 0.92, "source": "test.md"},
         ),
         ContextComponent(
             "rag_2",
-            ComponentType.RAG_DOCUMENT,
+            ComponentType.RAG,
             "Another doc.",
             3000,
             metadata={"chroma_score": 0.87},
@@ -117,20 +117,12 @@ def test_unique_instance_ids():
     assert c2._uid in h2
 
 
-def test_mode_buttons():
-    ctx = ContextWindow(trace=_make_trace(), mode="explore")
-    h = ctx.to_html()
-    assert 'data-mode="view"' in h
-    assert 'data-mode="explore"' in h
-    assert 'data-mode="edit"' in h
-
-
 def test_component_data_json():
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
     assert f"cedData_{ctx._uid}" in h
     assert '"system_prompt"' in h
-    assert '"rag_document"' in h
+    assert '"rag"' in h
 
 
 def test_legend_present():
@@ -173,3 +165,191 @@ def test_context_limit_override():
 def test_repr_html_matches_to_html():
     ctx = ContextWindow(trace=_make_trace())
     assert ctx._repr_html_() == ctx.to_html()
+
+
+# ============================================================================
+# ContextBuilder stateful editing tests
+# ============================================================================
+
+
+def test_backward_compat_context_window_alias():
+    """ContextWindow should be an alias for ContextBuilder."""
+    from context_engineering_dashboard import ContextBuilder, ContextWindow
+
+    assert ContextWindow is ContextBuilder
+
+
+def test_get_trace_returns_copy():
+    """get_trace() should return a deep copy of the working trace."""
+    from context_engineering_dashboard import ContextBuilder
+
+    trace = _make_trace()
+    builder = ContextBuilder(trace=trace)
+    returned_trace = builder.get_trace()
+
+    # Should be equal in content
+    assert returned_trace.total_tokens == trace.total_tokens
+    assert len(returned_trace.components) == len(trace.components)
+
+    # But not the same object
+    assert returned_trace is not builder._working_trace
+    assert returned_trace.components is not builder._working_trace.components
+
+
+def test_apply_edit_updates_content():
+    """apply_edit() should update the component content."""
+    from context_engineering_dashboard import ContextBuilder
+
+    trace = _make_trace()
+    builder = ContextBuilder(trace=trace)
+
+    new_content = "This is new system prompt content."
+    builder.apply_edit("sys_1", new_content)
+
+    # Check the working trace was updated
+    comp = next(c for c in builder._working_trace.components if c.id == "sys_1")
+    assert comp.content == new_content
+
+
+def test_apply_edit_recounts_tokens():
+    """apply_edit() should recount tokens for the edited content."""
+    from context_engineering_dashboard import ContextBuilder
+
+    trace = _make_trace()
+    original_total = trace.total_tokens
+    builder = ContextBuilder(trace=trace)
+
+    # Short content should have fewer tokens
+    new_content = "Short."
+    builder.apply_edit("sys_1", new_content)
+
+    comp = next(c for c in builder._working_trace.components if c.id == "sys_1")
+
+    # Token count should be updated (not the original 2000)
+    assert comp.token_count != 2000
+    assert comp.token_count < 100  # Short content
+
+    # Total tokens should be adjusted
+    assert builder._working_trace.total_tokens != original_total
+
+
+def test_apply_edit_raises_on_missing_id():
+    """apply_edit() should raise KeyError for unknown component ID."""
+    from context_engineering_dashboard import ContextBuilder
+
+    trace = _make_trace()
+    builder = ContextBuilder(trace=trace)
+
+    try:
+        builder.apply_edit("nonexistent_id", "content")
+        assert False, "Should have raised KeyError"
+    except KeyError as e:
+        assert "nonexistent_id" in str(e)
+
+
+def test_apply_reorder_changes_order():
+    """apply_reorder() should reorder components."""
+    from context_engineering_dashboard import ContextBuilder
+
+    trace = _make_trace()
+    builder = ContextBuilder(trace=trace)
+
+    # Original order: sys_1, rag_1, rag_2, user_1
+    original_ids = [c.id for c in builder._working_trace.components]
+    assert original_ids == ["sys_1", "rag_1", "rag_2", "user_1"]
+
+    # Reorder: user_1 first
+    new_order = ["user_1", "sys_1", "rag_1", "rag_2"]
+    builder.apply_reorder(new_order)
+
+    reordered_ids = [c.id for c in builder._working_trace.components]
+    assert reordered_ids == new_order
+
+
+def test_has_changes_after_edit():
+    """has_changes() should return True after editing."""
+    from context_engineering_dashboard import ContextBuilder
+
+    trace = _make_trace()
+    builder = ContextBuilder(trace=trace)
+
+    assert not builder.has_changes()
+
+    builder.apply_edit("sys_1", "New content")
+
+    assert builder.has_changes()
+
+
+def test_has_changes_after_reorder():
+    """has_changes() should return True after reordering."""
+    from context_engineering_dashboard import ContextBuilder
+
+    trace = _make_trace()
+    builder = ContextBuilder(trace=trace)
+
+    assert not builder.has_changes()
+
+    builder.apply_reorder(["user_1", "sys_1", "rag_1", "rag_2"])
+
+    assert builder.has_changes()
+
+
+def test_reset_clears_edits():
+    """reset() should restore the original trace."""
+    from context_engineering_dashboard import ContextBuilder
+
+    trace = _make_trace()
+    original_content = trace.components[0].content
+    builder = ContextBuilder(trace=trace)
+
+    # Make some edits
+    builder.apply_edit("sys_1", "Modified content")
+    builder.apply_reorder(["user_1", "sys_1", "rag_1", "rag_2"])
+
+    assert builder.has_changes()
+
+    # Reset
+    builder.reset()
+
+    assert not builder.has_changes()
+
+    # Content should be restored
+    comp = next(c for c in builder._working_trace.components if c.id == "sys_1")
+    assert comp.content == original_content
+
+    # Order should be restored
+    ids = [c.id for c in builder._working_trace.components]
+    assert ids == ["sys_1", "rag_1", "rag_2", "user_1"]
+
+
+def test_trace_property_returns_working_trace():
+    """trace property should return the working trace (backward compat)."""
+    from context_engineering_dashboard import ContextBuilder
+
+    trace = _make_trace()
+    builder = ContextBuilder(trace=trace)
+
+    assert builder.trace is builder._working_trace
+
+
+def test_html_contains_context_builder_label():
+    """HTML should contain 'Context Builder' label."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "Context Builder" in h
+
+
+def test_state_retrieval_function_present():
+    """JavaScript should include cedGetState function."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    uid = ctx._uid
+    assert f"cedGetState_{uid}" in h
+
+
+def test_save_stores_edit_in_data_attribute():
+    """Save handler should store edits in data-edits attribute."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "data-edits" in h
+    assert "data-has-changes" in h
