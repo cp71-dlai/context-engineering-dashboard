@@ -2,8 +2,8 @@
 
 Interaction model:
 - Hover → Tooltip (component type + token count)
-- Click → Read-only modal (full content and metadata)
-- Double-click → Editable modal (with Save/Cancel)
+- Click → Modal with full content and metadata
+- Click on text in modal → Switch to edit mode with Save button
 """
 
 from context_engineering_dashboard.core.context_window import ContextWindow
@@ -51,43 +51,37 @@ def test_tooltip_on_hover():
     assert "mouseenter" in h
     assert "mouseleave" in h
     assert "ced-tooltip" in h
-    # Tooltip text includes type and token count
     assert "TOKENS" in h
 
 
-def test_click_opens_readonly_modal():
-    """Single click opens read-only modal."""
+def test_click_opens_modal():
+    """Single click opens modal with content."""
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
-    # Click handler present
     assert "addEventListener('click'" in h
-    # showModal called with false (not editable)
-    assert "showModal(info, false)" in h
+    assert "showModal(info)" in h
 
 
-def test_dblclick_opens_editable_modal():
-    """Double-click opens editable modal."""
+def test_click_to_edit_in_modal():
+    """Clicking on text in modal switches to edit mode."""
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
-    # Double-click handler present
-    assert "addEventListener('dblclick'" in h
-    # showModal called with true (editable)
-    assert "showModal(info, true)" in h
+    assert "Click text to edit" in h
+    assert "switchToEditMode" in h
+    assert "ced-content-text" in h
 
 
-def test_editable_modal_has_save_cancel():
-    """Editable modal includes Save and Cancel buttons."""
+def test_save_button_in_header():
+    """Save button is in header, hidden by default."""
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
-    assert "ced-modal-footer" in h
-    assert "Save" in h
-    assert "Cancel" in h
     assert "ced-modal-save" in h
-    assert "ced-modal-cancel" in h
+    assert "ced-modal-actions" in h
+    assert 'style="display:none;">Save</button>' in h
 
 
 def test_editable_modal_has_textarea():
-    """Editable modal includes textarea for content editing."""
+    """Edit mode shows textarea for content editing."""
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
     assert "ced-modal-textarea" in h
@@ -118,7 +112,6 @@ def test_json_escaping_in_component_data():
     trace = ContextTrace(context_limit=1000, components=components, total_tokens=10)
     ctx = ContextWindow(trace=trace)
     h = ctx.to_html()
-    # JSON should escape quotes and newlines
     assert '\\"quotes\\"' in h
     assert "\\n" in h
 
@@ -144,7 +137,7 @@ def test_color_map_in_js():
 
 
 def test_no_mode_buttons():
-    """Mode buttons should not exist - gestures replace modes."""
+    """Mode buttons should not exist - simplified UX."""
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
     assert 'data-mode="view"' not in h
@@ -153,11 +146,11 @@ def test_no_mode_buttons():
     assert "cedSetMode_" not in h
 
 
-def test_no_highlight_class():
-    """Highlight class removed - not needed with gesture-based UX."""
+def test_no_double_click():
+    """Double-click handler removed - click text to edit instead."""
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
-    assert "ced-highlighted" not in h
+    assert "dblclick" not in h
 
 
 def test_header_has_settings_button():
@@ -165,4 +158,13 @@ def test_header_has_settings_button():
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
     assert "ced-header" in h
-    assert "\u2699" in h  # gear icon
+    assert "\u2699" in h
+
+
+def test_text_scrollbar_css():
+    """Text content should have scrollbar for long content."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "ced-modal-text" in h
+    assert "overflow-y: auto" in h
+    assert "max-height:" in h

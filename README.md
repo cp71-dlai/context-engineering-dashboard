@@ -129,8 +129,8 @@ diff.sankey()
 | Gesture | Action |
 |---------|--------|
 | **Hover** | Tooltip with component type and token count |
-| **Click** | Read-only modal with full content and metadata |
-| **Double-click** | Editable modal with Save/Cancel buttons |
+| **Click** | Modal with full content and metadata |
+| **Click text in modal** | Switch to edit mode (Save button appears) |
 
 ---
 
