@@ -61,9 +61,9 @@ class TestLangChainTracer:
 
         trace = tracer.result
         assert trace is not None
-        assert trace.llm_trace is not None
-        assert trace.llm_trace.response == "Hello! How can I help?"
-        assert trace.llm_trace.model == "ChatOpenAI"
+        assert trace.trace is not None
+        assert trace.trace.response == "Hello! How can I help?"
+        assert trace.trace.model == "ChatOpenAI"
 
     def test_handler_property(self):
         """Handler should be accessible as a property."""

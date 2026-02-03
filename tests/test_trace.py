@@ -5,13 +5,11 @@ import tempfile
 from pathlib import Path
 
 from context_engineering_dashboard.core.trace import (
-    ChromaQuery,
-    ChromaRetrievalResult,
     ComponentType,
     ContextComponent,
     ContextTrace,
     EmbeddingTrace,
-    LLMTrace,
+    Trace,
     ToolCall,
 )
 
@@ -56,76 +54,6 @@ def test_context_component_default_metadata():
     assert comp.metadata == {}
 
 
-def test_chroma_retrieval_result_roundtrip():
-    result = ChromaRetrievalResult(
-        id="doc_1",
-        content="Some document content",
-        token_count=10,
-        score=0.92,
-        selected=True,
-        metadata={"source": "test.md"},
-        collection="docs",
-        embedding_model="text-embedding-3-small",
-    )
-    d = result.to_dict()
-    restored = ChromaRetrievalResult.from_dict(d)
-    assert restored.id == result.id
-    assert restored.score == result.score
-    assert restored.selected == result.selected
-    assert restored.collection == result.collection
-    assert restored.embedding_model == result.embedding_model
-
-
-def test_chroma_retrieval_result_defaults():
-    d = {
-        "id": "d1",
-        "content": "text",
-        "token_count": 5,
-        "score": 0.5,
-        "selected": False,
-    }
-    r = ChromaRetrievalResult.from_dict(d)
-    assert r.metadata == {}
-    assert r.collection == ""
-    assert r.embedding_model == ""
-
-
-def test_chroma_query_roundtrip():
-    results = [
-        ChromaRetrievalResult("d1", "text1", 5, 0.9, True),
-        ChromaRetrievalResult("d2", "text2", 10, 0.7, False),
-    ]
-    query = ChromaQuery(
-        collection="test_collection",
-        query_text="what is chroma?",
-        query_embedding=[0.1, 0.2, 0.3],
-        n_results=10,
-        where_filter={"source": "docs"},
-        results=results,
-    )
-    d = query.to_dict()
-    restored = ChromaQuery.from_dict(d)
-    assert restored.collection == query.collection
-    assert restored.query_text == query.query_text
-    assert restored.query_embedding == query.query_embedding
-    assert restored.n_results == query.n_results
-    assert restored.where_filter == query.where_filter
-    assert len(restored.results) == 2
-    assert restored.results[0].id == "d1"
-
-
-def test_chroma_query_selected_unselected():
-    results = [
-        ChromaRetrievalResult("d1", "text1", 5, 0.9, True),
-        ChromaRetrievalResult("d2", "text2", 10, 0.7, False),
-        ChromaRetrievalResult("d3", "text3", 8, 0.8, True),
-    ]
-    query = ChromaQuery(collection="c", query_text="q", results=results)
-    assert len(query.selected_results) == 2
-    assert len(query.unselected_results) == 1
-    assert query.unselected_results[0].id == "d2"
-
-
 def test_tool_call_roundtrip():
     tc = ToolCall(name="search", arguments={"query": "test"}, result="found it")
     d = tc.to_dict()
@@ -141,8 +69,8 @@ def test_tool_call_optional_result():
     assert tc.result is None
 
 
-def test_llm_trace_roundtrip():
-    trace = LLMTrace(
+def test_trace_roundtrip():
+    trace = Trace(
         provider="openai",
         model="gpt-4o",
         messages=[
@@ -153,9 +81,11 @@ def test_llm_trace_roundtrip():
         tool_calls=[ToolCall("fn", {"x": 1}, "result")],
         usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
         latency_ms=123.4,
+        timestamp="2025-01-01T00:00:00Z",
+        session_id="sess_123",
     )
     d = trace.to_dict()
-    restored = LLMTrace.from_dict(d)
+    restored = Trace.from_dict(d)
     assert restored.provider == trace.provider
     assert restored.model == trace.model
     assert restored.messages == trace.messages
@@ -164,19 +94,31 @@ def test_llm_trace_roundtrip():
     assert restored.tool_calls[0].name == "fn"
     assert restored.usage == trace.usage
     assert restored.latency_ms == trace.latency_ms
+    assert restored.timestamp == trace.timestamp
+    assert restored.session_id == trace.session_id
 
 
-def test_llm_trace_defaults():
+def test_trace_defaults():
     d = {
         "provider": "openai",
         "model": "gpt-4o",
         "messages": [],
         "response": "ok",
     }
-    t = LLMTrace.from_dict(d)
+    t = Trace.from_dict(d)
     assert t.tool_calls == []
     assert t.usage == {}
     assert t.latency_ms == 0.0
+    assert t.timestamp == ""
+    assert t.session_id == ""
+
+
+def test_trace_schema_reference():
+    trace = Trace(provider="openai", model="gpt-4o", response="test")
+    d = trace.to_dict()
+    assert "$schema" in d
+    assert "schema_version" in d
+    assert d["schema_version"] == "1.0.0"
 
 
 def test_embedding_trace_roundtrip():
@@ -201,22 +143,21 @@ def test_context_trace_roundtrip():
         ContextComponent("sys_1", ComponentType.SYSTEM_PROMPT, "System prompt", 100),
         ContextComponent("user_1", ComponentType.USER_MESSAGE, "User msg", 50),
     ]
-    queries = [
-        ChromaQuery(
-            collection="docs",
-            query_text="test",
-            results=[ChromaRetrievalResult("d1", "doc", 20, 0.9, True)],
-        )
-    ]
-    llm = LLMTrace("openai", "gpt-4o", [], "response")
+    llm = Trace(
+        provider="openai",
+        model="gpt-4o",
+        messages=[],
+        response="response",
+        timestamp="2025-01-01T00:00:00Z",
+        session_id="llm_123",
+    )
     embeddings = [EmbeddingTrace("openai", "text-embedding-3-small", "hi", [0.1], 10.0)]
 
     trace = ContextTrace(
         context_limit=128000,
         components=components,
         total_tokens=150,
-        chroma_queries=queries,
-        llm_trace=llm,
+        trace=llm,
         embedding_traces=embeddings,
         timestamp="2025-01-01T00:00:00Z",
         session_id="sess_123",
@@ -229,9 +170,8 @@ def test_context_trace_roundtrip():
     assert restored.total_tokens == trace.total_tokens
     assert len(restored.components) == 2
     assert restored.components[0].type == ComponentType.SYSTEM_PROMPT
-    assert len(restored.chroma_queries) == 1
-    assert restored.llm_trace is not None
-    assert restored.llm_trace.provider == "openai"
+    assert restored.trace is not None
+    assert restored.trace.provider == "openai"
     assert len(restored.embedding_traces) == 1
     assert restored.timestamp == trace.timestamp
     assert restored.session_id == trace.session_id
@@ -245,8 +185,7 @@ def test_context_trace_no_optional_fields():
         "components": [{"id": "s", "type": "system_prompt", "content": "hi", "token_count": 100}],
     }
     trace = ContextTrace.from_dict(d)
-    assert trace.chroma_queries == []
-    assert trace.llm_trace is None
+    assert trace.trace is None
     assert trace.embedding_traces == []
     assert trace.timestamp == ""
     assert trace.session_id == ""

@@ -8,7 +8,7 @@ from context_engineering_dashboard.core.trace import (
     ComponentType,
     ContextComponent,
     ContextTrace,
-    LLMTrace,
+    Trace,
 )
 from context_engineering_dashboard.tracers.base_tracer import BaseTracer
 
@@ -132,7 +132,7 @@ def _make_handler_class() -> type:
                     )
 
             # Build LLM trace from last call if available
-            llm_trace = None
+            trace = None
             if self._llm_starts and self._llm_ends:
                 last_start = self._llm_starts[-1]
                 last_end = self._llm_ends[-1]
@@ -143,11 +143,13 @@ def _make_handler_class() -> type:
                     pass
 
                 model = last_start["serialized"].get("name", "unknown")
-                llm_trace = LLMTrace(
+                trace = Trace(
                     provider="langchain",
                     model=model,
                     messages=[{"role": "user", "content": p} for p in last_start["prompts"]],
                     response=response_text,
+                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    session_id=str(uuid.uuid4())[:8],
                 )
 
             total_tokens = sum(c.token_count for c in components)
@@ -156,7 +158,7 @@ def _make_handler_class() -> type:
                 context_limit=context_limit,
                 components=components,
                 total_tokens=total_tokens,
-                llm_trace=llm_trace,
+                trace=trace,
                 timestamp=datetime.now(timezone.utc).isoformat(),
                 session_id=str(uuid.uuid4())[:8],
             )

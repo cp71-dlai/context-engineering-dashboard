@@ -2,14 +2,14 @@
 Trace data structures for context engineering visualization.
 
 These dataclasses define the schema for capturing and storing
-traces from LLM calls, Chroma queries, and context assembly.
+traces from LLM calls and context assembly.
 """
 
 import json
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 
 class ComponentType(Enum):
@@ -55,88 +55,6 @@ class ContextComponent:
 
 
 @dataclass
-class ChromaRetrievalResult:
-    """A document returned from a Chroma query."""
-
-    id: str
-    content: str
-    token_count: int
-    score: float
-    selected: bool
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    collection: str = ""
-    embedding_model: str = ""
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "content": self.content,
-            "token_count": self.token_count,
-            "score": self.score,
-            "selected": self.selected,
-            "metadata": self.metadata,
-            "collection": self.collection,
-            "embedding_model": self.embedding_model,
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChromaRetrievalResult":
-        return cls(
-            id=data["id"],
-            content=data["content"],
-            token_count=data["token_count"],
-            score=data["score"],
-            selected=data["selected"],
-            metadata=data.get("metadata", {}),
-            collection=data.get("collection", ""),
-            embedding_model=data.get("embedding_model", ""),
-        )
-
-
-@dataclass
-class ChromaQuery:
-    """Captures a Chroma retrieval operation."""
-
-    collection: str
-    query_text: str
-    query_embedding: Optional[List[float]] = None
-    n_results: int = 10
-    where_filter: Optional[Dict] = None
-    results: List[ChromaRetrievalResult] = field(default_factory=list)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "collection": self.collection,
-            "query_text": self.query_text,
-            "query_embedding": self.query_embedding,
-            "n_results": self.n_results,
-            "where_filter": self.where_filter,
-            "results": [r.to_dict() for r in self.results],
-        }
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ChromaQuery":
-        return cls(
-            collection=data["collection"],
-            query_text=data["query_text"],
-            query_embedding=data.get("query_embedding"),
-            n_results=data.get("n_results", 10),
-            where_filter=data.get("where_filter"),
-            results=[ChromaRetrievalResult.from_dict(r) for r in data.get("results", [])],
-        )
-
-    @property
-    def selected_results(self) -> List[ChromaRetrievalResult]:
-        """Return only the results that were selected for the context window."""
-        return [r for r in self.results if r.selected]
-
-    @property
-    def unselected_results(self) -> List[ChromaRetrievalResult]:
-        """Return results that were not selected."""
-        return [r for r in self.results if not r.selected]
-
-
-@dataclass
 class ToolCall:
     """A tool invocation by the LLM."""
 
@@ -161,19 +79,61 @@ class ToolCall:
 
 
 @dataclass
-class LLMTrace:
-    """Trace of a language model call."""
+class Trace:
+    """Trace of a language model call with explicit schema reference.
 
-    provider: str
-    model: str
-    messages: List[Dict[str, str]]
-    response: str
+    This is the standardized format for capturing LLM interactions
+    across all providers (OpenAI, Anthropic, Google, etc.).
+
+    Attributes
+    ----------
+    schema_ref : str
+        URL to the JSON Schema for validation.
+    schema_version : str
+        Version of the schema.
+    provider : str
+        LLM provider name (openai, anthropic, google, etc.).
+    model : str
+        Model identifier (e.g., "gpt-4o", "claude-3-sonnet").
+    messages : List[Dict[str, str]]
+        Full message history sent to the model.
+    response : str
+        Model's text response.
+    tool_calls : List[ToolCall]
+        Any tool invocations made by the model.
+    usage : Dict[str, int]
+        Token usage: prompt_tokens, completion_tokens, total_tokens.
+    latency_ms : float
+        Request latency in milliseconds.
+    timestamp : str
+        ISO 8601 timestamp of the call.
+    session_id : str
+        Session identifier for grouping traces.
+    """
+
+    # Schema reference
+    schema_ref: str = field(
+        default="https://github.com/cp71-dlai/context-engineering-dashboard/schemas/trace.json"
+    )
+    schema_version: str = "1.0.0"
+
+    # Core fields
+    provider: str = ""
+    model: str = ""
+    messages: List[Dict[str, str]] = field(default_factory=list)
+    response: str = ""
     tool_calls: List[ToolCall] = field(default_factory=list)
     usage: Dict[str, int] = field(default_factory=dict)
     latency_ms: float = 0.0
 
+    # Metadata
+    timestamp: str = ""
+    session_id: str = ""
+
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "$schema": self.schema_ref,
+            "schema_version": self.schema_version,
             "provider": self.provider,
             "model": self.model,
             "messages": self.messages,
@@ -181,19 +141,69 @@ class LLMTrace:
             "tool_calls": [t.to_dict() for t in self.tool_calls],
             "usage": self.usage,
             "latency_ms": self.latency_ms,
+            "timestamp": self.timestamp,
+            "session_id": self.session_id,
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "LLMTrace":
+    def from_dict(cls, data: Dict[str, Any]) -> "Trace":
         return cls(
-            provider=data["provider"],
-            model=data["model"],
-            messages=data["messages"],
-            response=data["response"],
+            schema_ref=data.get("$schema", cls.schema_ref),
+            schema_version=data.get("schema_version", "1.0.0"),
+            provider=data.get("provider", ""),
+            model=data.get("model", ""),
+            messages=data.get("messages", []),
+            response=data.get("response", ""),
             tool_calls=[ToolCall.from_dict(t) for t in data.get("tool_calls", [])],
             usage=data.get("usage", {}),
             latency_ms=data.get("latency_ms", 0.0),
+            timestamp=data.get("timestamp", ""),
+            session_id=data.get("session_id", ""),
         )
+
+    def validate(self, strict: bool = False) -> bool:
+        """Validate trace against JSON schema.
+
+        Parameters
+        ----------
+        strict : bool
+            If True, raise ValidationError on failure.
+            If False, return bool.
+
+        Returns
+        -------
+        bool
+            True if valid, False otherwise.
+        """
+        try:
+            import jsonschema
+
+            # Load bundled schema
+            schema_path = Path(__file__).parent.parent.parent / "schemas" / "trace-schema.json"
+            if schema_path.exists():
+                with open(schema_path) as f:
+                    schema = json.load(f)
+                jsonschema.validate(self.to_dict(), schema)
+            return True
+        except ImportError:
+            if strict:
+                raise ImportError("jsonschema required for validation")
+            return True  # Skip validation if jsonschema not installed
+        except Exception:
+            if strict:
+                raise
+            return False
+
+    def to_json(self, path: Union[str, Path]) -> None:
+        """Save trace to JSON file."""
+        with open(path, "w") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+    @classmethod
+    def from_json(cls, path: Union[str, Path]) -> "Trace":
+        """Load trace from JSON file."""
+        with open(path) as f:
+            return cls.from_dict(json.load(f))
 
 
 @dataclass
@@ -228,14 +238,36 @@ class EmbeddingTrace:
 
 @dataclass
 class ContextTrace:
-    """Complete trace of a context engineering operation."""
+    """Complete trace of a context engineering operation.
+
+    Represents a snapshot of the context window including all components
+    and optional LLM call trace.
+
+    Attributes
+    ----------
+    context_limit : int
+        Maximum context window size in tokens.
+    components : List[ContextComponent]
+        Components in the context window (in order).
+    total_tokens : int
+        Total tokens used.
+    trace : Trace, optional
+        The LLM call trace.
+    embedding_traces : List[EmbeddingTrace]
+        Embedding model call traces.
+    timestamp : str
+        ISO 8601 timestamp.
+    session_id : str
+        Session identifier for grouping.
+    tags : List[str]
+        User-defined filter tags.
+    """
 
     context_limit: int
     components: List[ContextComponent]
     total_tokens: int
 
-    chroma_queries: List[ChromaQuery] = field(default_factory=list)
-    llm_trace: Optional[LLMTrace] = None
+    trace: Optional[Trace] = None
     embedding_traces: List[EmbeddingTrace] = field(default_factory=list)
 
     timestamp: str = ""
@@ -247,8 +279,7 @@ class ContextTrace:
             "context_limit": self.context_limit,
             "total_tokens": self.total_tokens,
             "components": [c.to_dict() for c in self.components],
-            "chroma_queries": [q.to_dict() for q in self.chroma_queries],
-            "llm_trace": self.llm_trace.to_dict() if self.llm_trace else None,
+            "trace": self.trace.to_dict() if self.trace else None,
             "embedding_traces": [e.to_dict() for e in self.embedding_traces],
             "timestamp": self.timestamp,
             "session_id": self.session_id,
@@ -261,8 +292,7 @@ class ContextTrace:
             context_limit=data["context_limit"],
             total_tokens=data["total_tokens"],
             components=[ContextComponent.from_dict(c) for c in data["components"]],
-            chroma_queries=[ChromaQuery.from_dict(q) for q in data.get("chroma_queries", [])],
-            llm_trace=LLMTrace.from_dict(data["llm_trace"]) if data.get("llm_trace") else None,
+            trace=Trace.from_dict(data["trace"]) if data.get("trace") else None,
             embedding_traces=[
                 EmbeddingTrace.from_dict(e) for e in data.get("embedding_traces", [])
             ],
@@ -271,13 +301,13 @@ class ContextTrace:
             tags=data.get("tags", []),
         )
 
-    def to_json(self, path: str | Path) -> None:
+    def to_json(self, path: Union[str, Path]) -> None:
         """Save trace to JSON file."""
         with open(path, "w") as f:
             json.dump(self.to_dict(), f, indent=2)
 
     @classmethod
-    def from_json(cls, path: str | Path) -> "ContextTrace":
+    def from_json(cls, path: Union[str, Path]) -> "ContextTrace":
         """Load trace from JSON file."""
         with open(path) as f:
             return cls.from_dict(json.load(f))
@@ -290,6 +320,8 @@ class ContextTrace:
     @property
     def utilization(self) -> float:
         """Context window utilization as a percentage (0-100)."""
+        if self.context_limit == 0:
+            return 0.0
         return (self.total_tokens / self.context_limit) * 100
 
     def get_components_by_type(self, component_type: ComponentType) -> List[ContextComponent]:

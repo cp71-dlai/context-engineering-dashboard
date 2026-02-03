@@ -5,7 +5,7 @@
   "description": "Complete trace of a context engineering operation for visualization",
   "type": "object",
   "required": ["context_limit", "components", "total_tokens"],
-  
+
   "definitions": {
     "ComponentType": {
       "type": "string",
@@ -20,7 +20,7 @@
       ],
       "description": "Type of context component"
     },
-    
+
     "ContextComponent": {
       "type": "object",
       "description": "A single component in the context window",
@@ -45,90 +45,11 @@
         "metadata": {
           "type": "object",
           "additionalProperties": true,
-          "description": "Arbitrary metadata (e.g., chroma_score, source)"
+          "description": "Arbitrary metadata (e.g., score, source)"
         }
       }
     },
-    
-    "ChromaRetrievalResult": {
-      "type": "object",
-      "description": "A document returned from a Chroma query",
-      "required": ["id", "content", "token_count", "score", "selected"],
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Document ID in Chroma"
-        },
-        "content": {
-          "type": "string",
-          "description": "Document text content"
-        },
-        "token_count": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "Number of tokens"
-        },
-        "score": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1,
-          "description": "Similarity score from Chroma (0-1)"
-        },
-        "selected": {
-          "type": "boolean",
-          "description": "Whether this document was included in the context window"
-        },
-        "metadata": {
-          "type": "object",
-          "additionalProperties": true,
-          "description": "Document metadata from Chroma"
-        },
-        "collection": {
-          "type": "string",
-          "description": "Name of the Chroma collection"
-        },
-        "embedding_model": {
-          "type": "string",
-          "description": "Embedding model used"
-        }
-      }
-    },
-    
-    "ChromaQuery": {
-      "type": "object",
-      "description": "Captures a Chroma retrieval operation",
-      "required": ["collection", "query_text", "results"],
-      "properties": {
-        "collection": {
-          "type": "string",
-          "description": "Name of the queried collection"
-        },
-        "query_text": {
-          "type": "string",
-          "description": "The query text used for retrieval"
-        },
-        "query_embedding": {
-          "type": ["array", "null"],
-          "items": {"type": "number"},
-          "description": "The query embedding vector (optional)"
-        },
-        "n_results": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Number of results requested"
-        },
-        "where_filter": {
-          "type": ["object", "null"],
-          "description": "Chroma where filter applied (optional)"
-        },
-        "results": {
-          "type": "array",
-          "items": {"$ref": "#/definitions/ChromaRetrievalResult"},
-          "description": "All documents returned by the query"
-        }
-      }
-    },
-    
+
     "ToolCall": {
       "type": "object",
       "description": "A tool invocation by the LLM",
@@ -149,16 +70,23 @@
         }
       }
     },
-    
-    "LLMTrace": {
+
+    "Trace": {
       "type": "object",
-      "description": "Trace of a language model call",
+      "description": "Trace of a language model call with explicit schema reference",
       "required": ["provider", "model", "messages", "response"],
       "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "URL to JSON Schema for validation"
+        },
+        "schema_version": {
+          "type": "string",
+          "description": "Version of the schema"
+        },
         "provider": {
           "type": "string",
-          "enum": ["openai", "anthropic", "google", "cohere", "mistral", "ollama"],
-          "description": "LLM provider"
+          "description": "LLM provider (openai, anthropic, google, etc.)"
         },
         "model": {
           "type": "string",
@@ -209,10 +137,19 @@
           "type": "number",
           "minimum": 0,
           "description": "Request latency in milliseconds"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the call was made (ISO 8601)"
+        },
+        "session_id": {
+          "type": "string",
+          "description": "Session identifier"
         }
       }
     },
-    
+
     "EmbeddingTrace": {
       "type": "object",
       "description": "Trace of an embedding model call",
@@ -243,7 +180,7 @@
       }
     }
   },
-  
+
   "properties": {
     "context_limit": {
       "type": "integer",
@@ -260,14 +197,9 @@
       "items": {"$ref": "#/definitions/ContextComponent"},
       "description": "Components in the context window (in order)"
     },
-    "chroma_queries": {
-      "type": "array",
-      "items": {"$ref": "#/definitions/ChromaQuery"},
-      "description": "Chroma retrieval operations (shows available pool)"
-    },
-    "llm_trace": {
+    "trace": {
       "oneOf": [
-        {"$ref": "#/definitions/LLMTrace"},
+        {"$ref": "#/definitions/Trace"},
         {"type": "null"}
       ],
       "description": "Language model call trace"
@@ -292,7 +224,7 @@
       "description": "User-defined tags for filtering"
     }
   },
-  
+
   "examples": [
     {
       "context_limit": 128000,
@@ -312,7 +244,7 @@
           "token_count": 8000,
           "metadata": {
             "source": "docs/getting-started.md",
-            "chroma_score": 0.92
+            "score": 0.92
           }
         },
         {
@@ -323,32 +255,9 @@
           "metadata": {}
         }
       ],
-      "chroma_queries": [
-        {
-          "collection": "documentation",
-          "query_text": "How do I create a collection in Chroma?",
-          "n_results": 10,
-          "results": [
-            {
-              "id": "doc_14",
-              "content": "# Getting Started with ChromaDB...",
-              "token_count": 8000,
-              "score": 0.92,
-              "selected": true,
-              "metadata": {"source": "docs/getting-started.md"}
-            },
-            {
-              "id": "doc_7",
-              "content": "# Advanced Collection Configuration...",
-              "token_count": 5200,
-              "score": 0.87,
-              "selected": false,
-              "metadata": {"source": "docs/advanced.md"}
-            }
-          ]
-        }
-      ],
-      "llm_trace": {
+      "trace": {
+        "$schema": "https://github.com/cp71-dlai/context-engineering-dashboard/schemas/trace.json",
+        "schema_version": "1.0.0",
         "provider": "openai",
         "model": "gpt-4o",
         "messages": [
@@ -361,7 +270,9 @@
           "completion_tokens": 256,
           "total_tokens": 14606
         },
-        "latency_ms": 1234.5
+        "latency_ms": 1234.5,
+        "timestamp": "2025-01-26T10:30:00Z",
+        "session_id": "sess_abc123"
       },
       "timestamp": "2025-01-26T10:30:00Z",
       "session_id": "sess_abc123",

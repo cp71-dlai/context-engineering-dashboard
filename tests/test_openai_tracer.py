@@ -83,8 +83,8 @@ class TestOpenAITracer:
 
         trace = tracer.result
         assert trace is not None
-        assert trace.llm_trace is not None
-        assert trace.llm_trace.response == "Hi there!"
+        assert trace.trace is not None
+        assert trace.trace.response == "Hi there!"
 
     def test_captures_usage(self):
         """Tracer captures token usage statistics."""
@@ -97,10 +97,10 @@ class TestOpenAITracer:
 
         trace = tracer.result
         assert trace is not None
-        assert trace.llm_trace is not None
-        assert trace.llm_trace.usage["prompt_tokens"] == 150
-        assert trace.llm_trace.usage["completion_tokens"] == 30
-        assert trace.llm_trace.usage["total_tokens"] == 180
+        assert trace.trace is not None
+        assert trace.trace.usage["prompt_tokens"] == 150
+        assert trace.trace.usage["completion_tokens"] == 30
+        assert trace.trace.usage["total_tokens"] == 180
 
     def test_captures_tool_calls(self):
         """Tracer captures tool calls from the response."""
@@ -113,9 +113,9 @@ class TestOpenAITracer:
 
         trace = tracer.result
         assert trace is not None
-        assert trace.llm_trace is not None
-        assert len(trace.llm_trace.tool_calls) == 1
-        assert trace.llm_trace.tool_calls[0].name == "search"
+        assert trace.trace is not None
+        assert len(trace.trace.tool_calls) == 1
+        assert trace.trace.tool_calls[0].name == "search"
 
     def test_auto_detects_context_limit(self):
         """Tracer auto-detects context limit from model name."""
@@ -177,8 +177,8 @@ class TestOpenAITracer:
         tracer._trace = tracer._build_trace(tracer._captures[-1])
 
         assert tracer.result is not None
-        assert tracer.result.llm_trace is not None
-        assert tracer.result.llm_trace.latency_ms == 1234.5
+        assert tracer.result.trace is not None
+        assert tracer.result.trace.latency_ms == 1234.5
 
     def test_model_context_limits_known(self):
         """Known models should have context limits defined."""

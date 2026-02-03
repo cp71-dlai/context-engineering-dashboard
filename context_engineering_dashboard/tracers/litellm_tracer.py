@@ -15,8 +15,8 @@ from context_engineering_dashboard.core.trace import (
     ComponentType,
     ContextComponent,
     ContextTrace,
-    LLMTrace,
     ToolCall,
+    Trace,
 )
 from context_engineering_dashboard.tracers.base_tracer import BaseTracer
 
@@ -222,7 +222,7 @@ class LiteLLMTracer(BaseTracer):
         except (AttributeError, IndexError):
             pass
 
-        llm_trace = LLMTrace(
+        trace = Trace(
             provider=provider,
             model=model,
             messages=[
@@ -232,13 +232,15 @@ class LiteLLMTracer(BaseTracer):
             tool_calls=tool_calls_list,
             usage=usage,
             latency_ms=elapsed_ms,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            session_id=str(uuid.uuid4())[:8],
         )
 
         return ContextTrace(
             context_limit=context_limit,
             components=components,
             total_tokens=total_tokens,
-            llm_trace=llm_trace,
+            trace=trace,
             timestamp=datetime.now(timezone.utc).isoformat(),
             session_id=str(uuid.uuid4())[:8],
         )

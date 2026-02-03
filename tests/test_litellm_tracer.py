@@ -189,8 +189,8 @@ class TestLiteLLMTracer:
 
         trace = tracer.result
         assert trace is not None
-        assert trace.llm_trace is not None
-        assert trace.llm_trace.response == "Hi there!"
+        assert trace.trace is not None
+        assert trace.trace.response == "Hi there!"
 
     def test_captures_usage(self):
         tracer = LiteLLMTracer()
@@ -202,10 +202,10 @@ class TestLiteLLMTracer:
 
         trace = tracer.result
         assert trace is not None
-        assert trace.llm_trace is not None
-        assert trace.llm_trace.usage["prompt_tokens"] == 150
-        assert trace.llm_trace.usage["completion_tokens"] == 30
-        assert trace.llm_trace.usage["total_tokens"] == 180
+        assert trace.trace is not None
+        assert trace.trace.usage["prompt_tokens"] == 150
+        assert trace.trace.usage["completion_tokens"] == 30
+        assert trace.trace.usage["total_tokens"] == 180
 
     def test_captures_tool_calls(self):
         tracer = LiteLLMTracer()
@@ -217,9 +217,9 @@ class TestLiteLLMTracer:
 
         trace = tracer.result
         assert trace is not None
-        assert trace.llm_trace is not None
-        assert len(trace.llm_trace.tool_calls) == 1
-        assert trace.llm_trace.tool_calls[0].name == "search"
+        assert trace.trace is not None
+        assert len(trace.trace.tool_calls) == 1
+        assert trace.trace.tool_calls[0].name == "search"
 
     def test_provider_extracted_from_model(self):
         tracer = LiteLLMTracer()
@@ -230,8 +230,8 @@ class TestLiteLLMTracer:
         tracer._trace = tracer._build_trace(tracer._captures[-1])
 
         assert tracer.result is not None
-        assert tracer.result.llm_trace is not None
-        assert tracer.result.llm_trace.provider == "anthropic"
+        assert tracer.result.trace is not None
+        assert tracer.result.trace.provider == "anthropic"
 
     def test_provider_defaults_openai_for_bare_model(self):
         tracer = LiteLLMTracer()
@@ -242,8 +242,8 @@ class TestLiteLLMTracer:
         tracer._trace = tracer._build_trace(tracer._captures[-1])
 
         assert tracer.result is not None
-        assert tracer.result.llm_trace is not None
-        assert tracer.result.llm_trace.provider == "openai"
+        assert tracer.result.trace is not None
+        assert tracer.result.trace.provider == "openai"
 
     @patch("context_engineering_dashboard.tracers.litellm_tracer._get_context_limit")
     def test_auto_detects_context_limit(self, mock_get_limit):
@@ -296,8 +296,8 @@ class TestLiteLLMTracer:
         tracer._trace = tracer._build_trace(tracer._captures[-1])
 
         assert tracer.result is not None
-        assert tracer.result.llm_trace is not None
-        assert tracer.result.llm_trace.latency_ms == 1234.5
+        assert tracer.result.trace is not None
+        assert tracer.result.trace.latency_ms == 1234.5
 
     def test_result_none_before_exit(self):
         tracer = LiteLLMTracer()
@@ -327,9 +327,9 @@ class TestLiteLLMTracer:
         tracer._trace = tracer._build_trace(tracer._captures[-1])
 
         assert tracer.result is not None
-        assert tracer.result.llm_trace is not None
-        assert tracer.result.llm_trace.model == "bedrock/anthropic.claude-v2"
-        assert tracer.result.llm_trace.provider == "bedrock"
+        assert tracer.result.trace is not None
+        assert tracer.result.trace.model == "bedrock/anthropic.claude-v2"
+        assert tracer.result.trace.provider == "bedrock"
 
     def test_context_manager_patches_and_restores(self):
         mock_litellm = MagicMock()

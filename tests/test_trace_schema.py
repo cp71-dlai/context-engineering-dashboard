@@ -6,12 +6,10 @@ from pathlib import Path
 import pytest
 
 from context_engineering_dashboard.core.trace import (
-    ChromaQuery,
-    ChromaRetrievalResult,
     ComponentType,
     ContextComponent,
     ContextTrace,
-    LLMTrace,
+    Trace,
     ToolCall,
 )
 
@@ -46,7 +44,7 @@ def _make_full_trace():
             type=ComponentType.RAG,
             content="Document content here.",
             token_count=8000,
-            metadata={"source": "test.md", "chroma_score": 0.92},
+            metadata={"source": "test.md", "score": 0.92},
         ),
         ContextComponent(
             id="user_001",
@@ -56,36 +54,7 @@ def _make_full_trace():
             metadata={},
         ),
     ]
-    queries = [
-        ChromaQuery(
-            collection="documentation",
-            query_text="How do I use Chroma?",
-            n_results=10,
-            results=[
-                ChromaRetrievalResult(
-                    id="doc_14",
-                    content="Getting started content...",
-                    token_count=8000,
-                    score=0.92,
-                    selected=True,
-                    metadata={"source": "docs/getting-started.md"},
-                    collection="documentation",
-                    embedding_model="text-embedding-3-small",
-                ),
-                ChromaRetrievalResult(
-                    id="doc_7",
-                    content="Advanced content...",
-                    token_count=5200,
-                    score=0.87,
-                    selected=False,
-                    metadata={"source": "docs/advanced.md"},
-                    collection="documentation",
-                    embedding_model="text-embedding-3-small",
-                ),
-            ],
-        ),
-    ]
-    llm = LLMTrace(
+    llm = Trace(
         provider="openai",
         model="gpt-4o",
         messages=[
@@ -96,13 +65,14 @@ def _make_full_trace():
         tool_calls=[ToolCall("search", {"query": "test"}, "result")],
         usage={"prompt_tokens": 10015, "completion_tokens": 256, "total_tokens": 10271},
         latency_ms=1234.5,
+        timestamp="2025-01-26T10:30:00Z",
+        session_id="llm_abc123",
     )
     return ContextTrace(
         context_limit=128000,
         components=components,
         total_tokens=10015,
-        chroma_queries=queries,
-        llm_trace=llm,
+        trace=llm,
         embedding_traces=[],
         timestamp="2025-01-26T10:30:00Z",
         session_id="sess_abc123",

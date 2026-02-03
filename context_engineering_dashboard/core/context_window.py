@@ -4,7 +4,7 @@ import copy
 import html
 import json
 import uuid
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from context_engineering_dashboard.core.trace import ComponentType, ContextComponent, ContextTrace
 from context_engineering_dashboard.layouts.horizontal import compute_horizontal_layout
@@ -18,62 +18,74 @@ from context_engineering_dashboard.styles.colors import (
     UNUSED_TEXT_COLOR,
 )
 
+if TYPE_CHECKING:
+    from context_engineering_dashboard.core.resource import ContextResource
+
 
 class ContextBuilder:
     """Stateful editor for building and visualizing LLM context windows.
 
-    ContextBuilder wraps a ContextTrace and provides:
+    ContextBuilder provides:
     - Neo-brutalist visualization in Jupyter notebooks
-    - In-browser editing with persistence to the underlying trace
-    - Drag-and-drop component reordering
+    - Two-panel view with Available resources and Context Builder
+    - Drag-and-drop between panels to select/deselect items
+    - In-browser editing with Save button persistence
     - Export of modified traces
 
     Parameters
     ----------
-    trace : ContextTrace
-        The trace data to visualize and edit.
-    context_limit : int, optional
-        Override the trace's context_limit for display.
+    trace : ContextTrace, optional
+        The trace data to visualize. Can be None if only using resources.
+    context_limit : int
+        Maximum context window size in tokens.
     layout : str
         Layout algorithm: "horizontal" or "treemap".
-    show_available_pool : bool
-        Show Chroma available pool two-panel view.
-    show_patterns : bool
-        Show pattern analysis overlay.
+    resources : List[ContextResource], optional
+        Resource pools to show in Available panel.
 
     Interactions
     ------------
     - Hover: Tooltip with component type and token count
     - Click: Modal with full content and metadata
     - Click on text in modal: Switch to edit mode with Save button
-    - Drag components: Reorder in horizontal layout
+    - Drag items: Move between Available and Context panels
 
     Examples
     --------
-    >>> builder = ContextBuilder(trace=trace)
+    >>> rag = ContextResource.from_chroma(collection, ResourceType.RAG)
+    >>> rag.query(query_texts=["How do I..."], n_results=10)
+    >>> rag.select(["doc_1", "doc_2"])
+    >>>
+    >>> builder = ContextBuilder(resources=[rag])
     >>> builder.display()
-    >>> # After editing in browser...
-    >>> builder.apply_edit("sys_1", "New system prompt")
+    >>> # After dragging items and clicking Save...
+    >>> builder.apply_selections()
     >>> new_trace = builder.get_trace()
     """
 
     def __init__(
         self,
-        trace: ContextTrace,
-        context_limit: Optional[int] = None,
+        trace: Optional[ContextTrace] = None,
+        context_limit: int = 128_000,
         layout: str = "horizontal",
-        show_available_pool: bool = False,
-        show_patterns: bool = False,
+        resources: Optional[List["ContextResource"]] = None,
     ) -> None:
+        # Initialize trace (create empty if not provided)
+        if trace is None:
+            trace = ContextTrace(
+                context_limit=context_limit,
+                components=[],
+                total_tokens=0,
+            )
         self._original_trace = trace  # Immutable reference
         self._working_trace = copy.deepcopy(trace)  # Mutable copy for edits
         self._edits: dict = {}  # Track edit history
         self._reorder: Optional[List[str]] = None  # Track reorder history
         self.context_limit = context_limit or trace.context_limit
         self.layout = layout.lower()
-        self.show_available_pool = show_available_pool
-        self.show_patterns = show_patterns
+        self._resources = resources or []
         self._uid = uuid.uuid4().hex[:12]
+        self._pending_selections: dict = {}  # Track pending selection changes
 
     @property
     def trace(self) -> ContextTrace:
@@ -198,6 +210,53 @@ class ContextBuilder:
             # Fallback: rough estimate
             return len(content) // 4
 
+    @property
+    def resources(self) -> List["ContextResource"]:
+        """Return the list of resources."""
+        return self._resources
+
+    def apply_selections(self, selections: Optional[dict] = None) -> None:
+        """Apply selection changes from browser to resources.
+
+        This method updates each resource's selected_ids based on
+        the selections made via drag-and-drop in the browser.
+
+        Parameters
+        ----------
+        selections : dict, optional
+            Dict mapping resource_name -> list of selected item IDs.
+            If not provided, uses pending selections from _pending_selections.
+        """
+        if selections is None:
+            selections = self._pending_selections
+
+        for resource in self._resources:
+            if resource.name in selections:
+                resource.selected_ids = set(selections[resource.name])
+
+        # Rebuild components from selected resource items
+        self._rebuild_components_from_resources()
+        self._pending_selections = {}
+
+    def _rebuild_components_from_resources(self) -> None:
+        """Rebuild trace components from currently selected resource items."""
+        # Keep non-resource components (system prompt, user message, etc.)
+        resource_types = {r.resource_type.to_component_type() for r in self._resources}
+        non_resource_components = [
+            c for c in self._working_trace.components if c.type not in resource_types
+        ]
+
+        # Add selected items from resources as components
+        resource_components = []
+        for resource in self._resources:
+            resource_components.extend(resource.to_components())
+
+        # Combine and update trace
+        self._working_trace.components = non_resource_components + resource_components
+        self._working_trace.total_tokens = sum(
+            c.token_count for c in self._working_trace.components
+        )
+
     def _repr_html_(self) -> str:
         """Jupyter auto-display."""
         return self.to_html()
@@ -218,8 +277,8 @@ class ContextBuilder:
             self._header_html(uid),
         ]
 
-        if self.show_available_pool and self.trace.chroma_queries:
-            parts.append(self._available_pool_html(uid))
+        if self._resources:
+            parts.append(self._resources_panel_html(uid))
         else:
             parts.append(self._context_window_html(uid))
 
@@ -464,6 +523,46 @@ class ContextBuilder:
   display: flex; align-items: center; justify-content: center;
   font-size: 32px; padding: 16px;
 }}
+{s} .ced-panel-divider {{
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 8px; gap: 8px;
+}}
+{s} .ced-save-selections {{
+  background: #00AA55; color: white; border: 2px solid black;
+  padding: 8px 16px; font-weight: 700;
+}}
+{s} .ced-save-selections:hover {{
+  background: #008844;
+}}
+{s} .ced-resource-header {{
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  padding: 8px; background: #F5F5F5; margin-bottom: 4px;
+  border: 2px solid black;
+}}
+{s} .ced-token-badge {{
+  font-size: 9px; font-weight: 400; margin-left: 8px;
+}}
+{s} .ced-doc-item[draggable="true"] {{
+  cursor: grab;
+}}
+{s} .ced-doc-item[draggable="true"]:active {{
+  cursor: grabbing;
+}}
+{s} .ced-doc-item.ced-dragging {{
+  opacity: 0.5; box-shadow: 0 2px 0 black;
+}}
+{s} .ced-panel.ced-drop-target {{
+  background: #E8F4E8; border-color: #00AA55;
+}}
+{s} .ced-panel.ced-drop-target .ced-panel-header {{
+  background: #00AA55; color: white;
+}}
+{s} .ced-available-panel .ced-panel-content {{
+  max-height: 400px; overflow-y: auto;
+}}
+{s} .ced-context-panel .ced-panel-content {{
+  max-height: 400px; overflow-y: auto;
+}}
 {s} .ced-treemap {{
   position: relative; height: 300px; padding: 16px;
 }}
@@ -632,65 +731,108 @@ class ContextBuilder:
             f"</div>"
         )
 
-    # -------------------------------------------------------- Available pool
-    def _available_pool_html(self, uid: str) -> str:
-        """Render two-panel available pool view."""
-        if not self.trace.chroma_queries:
-            return self._context_window_html(uid)
+    # -------------------------------------------------------- Resources panel
+    def _resources_panel_html(self, uid: str) -> str:
+        """Render two-panel view with Available resources and Context Builder."""
+        # Calculate total selected tokens
+        total_selected = sum(r.total_selected_tokens for r in self._resources)
+        total_selected += sum(
+            c.token_count
+            for c in self._working_trace.components
+            if c.type not in {r.resource_type.to_component_type() for r in self._resources}
+        )
 
-        query = self.trace.chroma_queries[0]
-        n = query.n_results
-        sorted_results = sorted(query.results, key=lambda r: r.score, reverse=True)
-
-        # Left panel: all results
+        # Left panel: Available items from all resources
         left_items = []
-        for r in sorted_results:
-            sel_cls = "ced-selected" if r.selected else "ced-unselected"
-            check = "\u2713" if r.selected else "\u2717"
+        for resource in self._resources:
+            # Resource header
             left_items.append(
-                f'<div class="ced-doc-item {sel_cls}">'
-                f'<span class="ced-doc-score">{r.score:.2f}</span>'
-                f"<span>{html.escape(r.id)}</span>"
-                f'<span class="ced-doc-tokens">{r.token_count:,} tok</span>'
-                f'<span class="ced-doc-check">{check}</span>'
+                f'<div class="ced-resource-header" data-resource="{html.escape(resource.name)}">'
+                f"{html.escape(resource.name)} ({len(resource.items)} items)"
                 f"</div>"
             )
+            # Sort by score if available
+            sorted_items = sorted(
+                resource.items, key=lambda x: x.score if x.score is not None else 0, reverse=True
+            )
+            for item in sorted_items:
+                is_selected = item.id in resource.selected_ids
+                sel_cls = "ced-selected" if is_selected else "ced-unselected"
+                score_badge = ""
+                if item.score is not None:
+                    score_badge = f'<span class="ced-doc-score">{item.score:.2f}</span>'
+                check = "\u2713" if is_selected else ""
+                res_type_color = COMPONENT_COLORS.get(resource.resource_type.to_component_type(), "#999")
 
-        # Right panel: selected docs + other components
-        right_items = []
-        for r in sorted_results:
-            if r.selected:
-                right_items.append(
-                    f'<div class="ced-doc-item ced-selected">'
-                    f'<span class="ced-doc-score">{r.score:.2f}</span>'
-                    f"<span>{html.escape(r.id)}</span>"
-                    f'<span class="ced-doc-tokens">{r.token_count:,} tok</span>'
+                left_items.append(
+                    f'<div class="ced-doc-item {sel_cls}" '
+                    f'data-item-id="{html.escape(item.id)}" '
+                    f'data-resource="{html.escape(resource.name)}" '
+                    f'draggable="true" '
+                    f'style="border-left: 4px solid {res_type_color};">'
+                    f"{score_badge}"
+                    f"<span>{html.escape(item.id)}</span>"
+                    f'<span class="ced-doc-tokens">{item.token_count:,} tok</span>'
+                    f'<span class="ced-doc-check">{check}</span>'
                     f"</div>"
                 )
-        # Other components
-        for comp in self.trace.components:
-            if comp.type != ComponentType.RAG:
+
+        # Right panel: Selected items + trace components
+        right_items = []
+
+        # Add selected resource items
+        for resource in self._resources:
+            for item in resource.selected_items:
+                score_badge = ""
+                if item.score is not None:
+                    score_badge = f'<span class="ced-doc-score">{item.score:.2f}</span>'
+                res_type_color = COMPONENT_COLORS.get(resource.resource_type.to_component_type(), "#999")
+                res_type_label = COMPONENT_LABELS.get(resource.resource_type.to_component_type(), "")
+
+                right_items.append(
+                    f'<div class="ced-doc-item ced-selected" '
+                    f'data-item-id="{html.escape(item.id)}" '
+                    f'data-resource="{html.escape(resource.name)}" '
+                    f'draggable="true" '
+                    f'style="background: {res_type_color}; color: white;">'
+                    f"{score_badge}"
+                    f"<span>{html.escape(item.id)}</span>"
+                    f'<span class="ced-doc-tokens">{item.token_count:,} tok</span>'
+                    f"</div>"
+                )
+
+        # Add non-resource trace components
+        resource_types = {r.resource_type.to_component_type() for r in self._resources}
+        for comp in self._working_trace.components:
+            if comp.type not in resource_types:
                 css_cls = CSS_CLASSES.get(comp.type, "")
                 icon = COMPONENT_ICONS.get(comp.type, "")
                 label = COMPONENT_LABELS.get(comp.type, "")
                 right_items.append(
                     f'<div class="ced-doc-item {css_cls}" '
+                    f'data-comp-id="{html.escape(comp.id)}" '
                     f'style="border: 2px solid black;">'
                     f"<span>{icon} {html.escape(label)}</span>"
                     f'<span class="ced-doc-tokens">{comp.token_count:,} tok</span>'
                     f"</div>"
                 )
 
+        pct = round(total_selected / self.context_limit * 100) if self.context_limit else 0
+        token_str = f"{total_selected:,} / {self.context_limit:,} TOKENS ({pct}%)"
+
         return (
-            f'<div class="ced-two-panel">'
-            f'<div class="ced-panel">'
-            f'<div class="ced-panel-header">Available (Chroma Query: n={n})</div>'
-            f'<div class="ced-panel-content">{"".join(left_items)}</div>'
+            f'<div class="ced-two-panel" id="ced-panels-{uid}">'
+            f'<div class="ced-panel ced-available-panel" id="ced-available-{uid}">'
+            f'<div class="ced-panel-header">Available</div>'
+            f'<div class="ced-panel-content" id="ced-available-content-{uid}">{"".join(left_items)}</div>'
             f"</div>"
-            f'<div class="ced-scissors">\u2702\ufe0f</div>'
-            f'<div class="ced-panel">'
-            f'<div class="ced-panel-header">Context Window</div>'
-            f'<div class="ced-panel-content">{"".join(right_items)}</div>'
+            f'<div class="ced-panel-divider">'
+            f'<button class="ced-btn ced-save-selections" id="ced-save-btn-{uid}" '
+            f'style="display:none;">Save</button>'
+            f"</div>"
+            f'<div class="ced-panel ced-context-panel" id="ced-context-{uid}">'
+            f'<div class="ced-panel-header">Context Builder <span class="ced-token-badge">{token_str}</span></div>'
+            f'<div class="ced-panel-content" id="ced-context-content-{uid}">{"".join(right_items)}</div>'
             f"</div>"
             f"</div>"
         )
@@ -740,7 +882,7 @@ class ContextBuilder:
     def _component_data_script(self, uid: str) -> str:
         """Embed component data as a JS object for interaction modes."""
         data = {}
-        for comp in self.trace.components:
+        for comp in self._working_trace.components:
             data[comp.id] = {
                 "id": comp.id,
                 "type": comp.type.value,
@@ -748,7 +890,29 @@ class ContextBuilder:
                 "token_count": comp.token_count,
                 "metadata": comp.metadata,
             }
-        return f"<script>var cedData_{uid} = {json.dumps(data, ensure_ascii=False)};</script>"
+
+        # Also embed resource data
+        resources_data = {}
+        for resource in self._resources:
+            resources_data[resource.name] = {
+                "name": resource.name,
+                "type": resource.resource_type.value,
+                "selected_ids": list(resource.selected_ids),
+                "items": [
+                    {
+                        "id": item.id,
+                        "content": item.content,
+                        "token_count": item.token_count,
+                        "score": item.score,
+                    }
+                    for item in resource.items
+                ],
+            }
+
+        return (
+            f"<script>var cedData_{uid} = {json.dumps(data, ensure_ascii=False)};\n"
+            f"var cedResources_{uid} = {json.dumps(resources_data, ensure_ascii=False)};</script>"
+        )
 
     # ---------------------------------------------------------- JavaScript
     def _js(self, uid: str) -> str:
@@ -1104,9 +1268,212 @@ class ContextBuilder:
     return {{
       edits: JSON.parse(container.getAttribute('data-edits') || '{{}}'),
       componentOrder: JSON.parse(container.getAttribute('data-component-order') || '[]'),
+      selections: JSON.parse(container.getAttribute('data-selections') || '{{}}'),
       hasChanges: container.getAttribute('data-has-changes') === 'true'
     }};
   }};
+
+  // Cross-panel drag-and-drop for resources
+  var availablePanel = document.getElementById('ced-available-{uid}');
+  var contextPanel = document.getElementById('ced-context-{uid}');
+  var saveSelectionsBtn = document.getElementById('ced-save-btn-{uid}');
+  var pendingSelections = {{}};
+
+  function initCrossPanelDrag() {{
+    if (!availablePanel || !contextPanel) return;
+
+    // Get all draggable items
+    var draggableItems = container.querySelectorAll('.ced-doc-item[draggable="true"]');
+
+    draggableItems.forEach(function(item) {{
+      item.addEventListener('dragstart', function(e) {{
+        e.dataTransfer.setData('text/plain', JSON.stringify({{
+          itemId: item.getAttribute('data-item-id'),
+          resource: item.getAttribute('data-resource'),
+          fromContext: item.closest('.ced-context-panel') !== null
+        }}));
+        e.dataTransfer.effectAllowed = 'move';
+        item.classList.add('ced-dragging');
+      }});
+
+      item.addEventListener('dragend', function(e) {{
+        item.classList.remove('ced-dragging');
+        availablePanel.classList.remove('ced-drop-target');
+        contextPanel.classList.remove('ced-drop-target');
+      }});
+    }});
+
+    // Context panel accepts drops from Available
+    contextPanel.addEventListener('dragover', function(e) {{
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      contextPanel.classList.add('ced-drop-target');
+    }});
+
+    contextPanel.addEventListener('dragleave', function(e) {{
+      contextPanel.classList.remove('ced-drop-target');
+    }});
+
+    contextPanel.addEventListener('drop', function(e) {{
+      e.preventDefault();
+      contextPanel.classList.remove('ced-drop-target');
+      try {{
+        var data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        if (!data.fromContext && data.itemId && data.resource) {{
+          selectItem(data.resource, data.itemId);
+        }}
+      }} catch (err) {{}}
+    }});
+
+    // Available panel accepts drops from Context
+    availablePanel.addEventListener('dragover', function(e) {{
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      availablePanel.classList.add('ced-drop-target');
+    }});
+
+    availablePanel.addEventListener('dragleave', function(e) {{
+      availablePanel.classList.remove('ced-drop-target');
+    }});
+
+    availablePanel.addEventListener('drop', function(e) {{
+      e.preventDefault();
+      availablePanel.classList.remove('ced-drop-target');
+      try {{
+        var data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        if (data.fromContext && data.itemId && data.resource) {{
+          deselectItem(data.resource, data.itemId);
+        }}
+      }} catch (err) {{}}
+    }});
+  }}
+
+  function selectItem(resourceName, itemId) {{
+    // Initialize resource selections if needed
+    if (!pendingSelections[resourceName]) {{
+      pendingSelections[resourceName] = [];
+      // Get currently selected items
+      var selectedInContext = contextPanel.querySelectorAll(
+        '.ced-doc-item[data-resource="' + resourceName + '"]'
+      );
+      selectedInContext.forEach(function(el) {{
+        pendingSelections[resourceName].push(el.getAttribute('data-item-id'));
+      }});
+    }}
+
+    // Add to selections
+    if (pendingSelections[resourceName].indexOf(itemId) === -1) {{
+      pendingSelections[resourceName].push(itemId);
+    }}
+
+    // Update UI
+    updateSelectionUI(resourceName, itemId, true);
+    showSaveButton();
+  }}
+
+  function deselectItem(resourceName, itemId) {{
+    if (!pendingSelections[resourceName]) {{
+      pendingSelections[resourceName] = [];
+      var selectedInContext = contextPanel.querySelectorAll(
+        '.ced-doc-item[data-resource="' + resourceName + '"]'
+      );
+      selectedInContext.forEach(function(el) {{
+        pendingSelections[resourceName].push(el.getAttribute('data-item-id'));
+      }});
+    }}
+
+    // Remove from selections
+    var idx = pendingSelections[resourceName].indexOf(itemId);
+    if (idx !== -1) {{
+      pendingSelections[resourceName].splice(idx, 1);
+    }}
+
+    // Update UI
+    updateSelectionUI(resourceName, itemId, false);
+    showSaveButton();
+  }}
+
+  function updateSelectionUI(resourceName, itemId, selected) {{
+    // Update item in Available panel
+    var availableItem = availablePanel.querySelector(
+      '.ced-doc-item[data-item-id="' + itemId + '"][data-resource="' + resourceName + '"]'
+    );
+    if (availableItem) {{
+      if (selected) {{
+        availableItem.classList.add('ced-selected');
+        availableItem.classList.remove('ced-unselected');
+        availableItem.querySelector('.ced-doc-check').textContent = '\\u2713';
+      }} else {{
+        availableItem.classList.remove('ced-selected');
+        availableItem.classList.add('ced-unselected');
+        availableItem.querySelector('.ced-doc-check').textContent = '';
+      }}
+    }}
+
+    // Add/remove from Context panel
+    var contextContent = document.getElementById('ced-context-content-{uid}');
+    var contextItem = contextPanel.querySelector(
+      '.ced-doc-item[data-item-id="' + itemId + '"][data-resource="' + resourceName + '"]'
+    );
+
+    if (selected && !contextItem && availableItem) {{
+      // Clone and add to context
+      var clone = availableItem.cloneNode(true);
+      clone.classList.remove('ced-unselected');
+      clone.classList.add('ced-selected');
+      clone.style.background = '#00AA55';
+      clone.style.color = 'white';
+      clone.querySelector('.ced-doc-check').textContent = '';
+      contextContent.appendChild(clone);
+      // Re-init drag on the new element
+      initDragOnElement(clone);
+    }} else if (!selected && contextItem) {{
+      contextItem.remove();
+    }}
+  }}
+
+  function initDragOnElement(item) {{
+    item.addEventListener('dragstart', function(e) {{
+      e.dataTransfer.setData('text/plain', JSON.stringify({{
+        itemId: item.getAttribute('data-item-id'),
+        resource: item.getAttribute('data-resource'),
+        fromContext: item.closest('.ced-context-panel') !== null
+      }}));
+      e.dataTransfer.effectAllowed = 'move';
+      item.classList.add('ced-dragging');
+    }});
+
+    item.addEventListener('dragend', function(e) {{
+      item.classList.remove('ced-dragging');
+      availablePanel.classList.remove('ced-drop-target');
+      contextPanel.classList.remove('ced-drop-target');
+    }});
+  }}
+
+  function showSaveButton() {{
+    if (saveSelectionsBtn) {{
+      saveSelectionsBtn.style.display = 'block';
+      container.setAttribute('data-selections', JSON.stringify(pendingSelections));
+      container.setAttribute('data-has-changes', 'true');
+    }}
+  }}
+
+  // Save selections button handler
+  if (saveSelectionsBtn) {{
+    saveSelectionsBtn.addEventListener('click', function() {{
+      container.setAttribute('data-selections', JSON.stringify(pendingSelections));
+      saveSelectionsBtn.style.display = 'none';
+
+      // Dispatch event for external listeners
+      var event = new CustomEvent('ced-selections-saved', {{
+        detail: {{ selections: pendingSelections, uid: '{uid}' }}
+      }});
+      container.dispatchEvent(event);
+    }});
+  }}
+
+  // Initialize cross-panel drag
+  initCrossPanelDrag();
 
   // Event handlers for each component
   components.forEach(function(el) {{

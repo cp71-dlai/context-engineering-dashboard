@@ -6,23 +6,19 @@ __version__ = "0.1.0"
 
 from context_engineering_dashboard.core.context_diff import ContextDiff
 from context_engineering_dashboard.core.context_window import ContextBuilder, ContextWindow
+from context_engineering_dashboard.core.resource import (
+    ContextResource,
+    ResourceItem,
+    ResourceType,
+)
 from context_engineering_dashboard.core.trace import (
-    ChromaQuery,
-    ChromaRetrievalResult,
     ComponentType,
     ContextComponent,
     ContextTrace,
     EmbeddingTrace,
-    LLMTrace,
     ToolCall,
+    Trace,
 )
-
-
-def trace_chroma(collection, **kwargs):  # type: ignore[no-untyped-def]
-    """Convenience function to wrap a Chroma collection for tracing."""
-    from context_engineering_dashboard.tracers.chroma_tracer import TracedCollection
-
-    return TracedCollection(collection, **kwargs)
 
 
 def trace_openai(**kwargs):  # type: ignore[no-untyped-def]
@@ -50,15 +46,15 @@ __all__ = [
     "ComponentType",
     "ContextComponent",
     "ContextTrace",
-    "ChromaQuery",
-    "ChromaRetrievalResult",
-    "LLMTrace",
+    "Trace",
     "EmbeddingTrace",
     "ToolCall",
+    "ContextResource",
+    "ResourceType",
+    "ResourceItem",
     "ContextBuilder",
     "ContextWindow",  # Deprecated alias for ContextBuilder
     "ContextDiff",
-    "trace_chroma",
     "trace_openai",
     "trace_langchain",
     "trace_litellm",

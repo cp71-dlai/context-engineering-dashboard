@@ -9,8 +9,8 @@ from context_engineering_dashboard.core.trace import (
     ComponentType,
     ContextComponent,
     ContextTrace,
-    LLMTrace,
     ToolCall,
+    Trace,
 )
 from context_engineering_dashboard.tracers.base_tracer import BaseTracer
 
@@ -198,7 +198,7 @@ class OpenAITracer(BaseTracer):
         except (AttributeError, IndexError):
             pass
 
-        llm_trace = LLMTrace(
+        trace = Trace(
             provider="openai",
             model=model,
             messages=[
@@ -208,13 +208,15 @@ class OpenAITracer(BaseTracer):
             tool_calls=tool_calls_list,
             usage=usage,
             latency_ms=elapsed_ms,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            session_id=str(uuid.uuid4())[:8],
         )
 
         return ContextTrace(
             context_limit=context_limit,
             components=components,
             total_tokens=total_tokens,
-            llm_trace=llm_trace,
+            trace=trace,
             timestamp=datetime.now(timezone.utc).isoformat(),
             session_id=str(uuid.uuid4())[:8],
         )
