@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "context-engineering-dashboard"
-version = "0.1.0"
+version = "0.2.0"
 description = "Visualize LLM context windows in Jupyter notebooks"
 readme = "README.md"
 license = "MIT"
@@ -63,7 +63,7 @@ Issues = "https://github.com/cp71-dlai/context-engineering-dashboard/issues"
 
 [tool.poetry]
 name = "context-engineering-dashboard"
-version = "0.1.0"
+version = "0.2.0"
 description = "Visualize and debug LLM context windows in Jupyter notebooks"
 authors = ["Christopher Policastro <chris@deeplearning.ai>"]
 license = "MIT"
