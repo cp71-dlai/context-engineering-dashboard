@@ -135,23 +135,9 @@ diff.sankey()
 
 ---
 
-## Layout Options
-
-```python
-# Horizontal (default): left-to-right packing
-ctx = ContextBuilder(trace=trace, layout="horizontal")
-
-# Treemap: better visibility for small components
-ctx = ContextBuilder(trace=trace, layout="treemap")
-```
-
-Toggle between layouts via the settings panel (gear icon).
-
----
-
 ## Chroma Integration
 
-The dashboard provides special handling for Chroma traces:
+The dashboard provides special handling for Chroma collections via **ContextResource**:
 
 **Score badges**: Visible on each RAG document component
 
@@ -160,15 +146,21 @@ The dashboard provides special handling for Chroma traces:
 - Similarity score
 - Metadata table
 - Collection name
-- Embedding model
 
-**Available Pool**: See all retrieved documents, not just selected ones
+**Available Pool**: See all retrieved documents and drag-drop to select
 
 ```python
-ctx = ContextBuilder(
-    trace=trace,
-    show_available_pool=True  # Shows Chroma results that didn't make the cut
-)
+from context_engineering_dashboard import ContextResource, ResourceType
+
+# Wrap your Chroma collection
+rag_docs = ContextResource.from_chroma(collection, ResourceType.RAG, "Docs")
+
+# Query and select results
+rag_docs.query(query_texts=["How do I..."], n_results=10)
+rag_docs.select(["doc_1", "doc_2", "doc_3"])
+
+# Visualize with Available panel
+ctx = ContextBuilder(resources=[rag_docs])
 ```
 
 ---
@@ -179,9 +171,7 @@ ctx = ContextBuilder(
 ctx = ContextBuilder(
     trace=trace,
     context_limit=128_000,      # Model's max context
-    layout="horizontal",        # "horizontal" | "treemap"
-    show_patterns=False,        # Accessibility patterns for colorblind users
-    show_available_pool=True,   # Show full Chroma retrieval results
+    resources=[rag_docs],       # ContextResource pools to show in Available panel
 )
 ```
 

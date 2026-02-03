@@ -7,7 +7,7 @@ import uuid
 from typing import TYPE_CHECKING, List, Optional
 
 from context_engineering_dashboard.core.trace import ComponentType, ContextComponent, ContextTrace
-from context_engineering_dashboard.layouts.horizontal import compute_horizontal_layout
+from context_engineering_dashboard.layouts.vertical import compute_vertical_layout
 from context_engineering_dashboard.styles.colors import (
     COMPONENT_COLORS,
     COMPONENT_ICONS,
@@ -39,7 +39,7 @@ class ContextBuilder:
     context_limit : int
         Maximum context window size in tokens.
     layout : str
-        Layout algorithm: "horizontal" or "treemap".
+        Layout algorithm: "vertical" (default).
     resources : List[ContextResource], optional
         Resource pools to show in Available panel.
 
@@ -67,7 +67,7 @@ class ContextBuilder:
         self,
         trace: Optional[ContextTrace] = None,
         context_limit: int = 128_000,
-        layout: str = "horizontal",
+        layout: str = "vertical",
         resources: Optional[List["ContextResource"]] = None,
     ) -> None:
         # Initialize trace (create empty if not provided)
@@ -351,31 +351,35 @@ class ContextBuilder:
   background: white; padding: 0 4px;
   font-size: 10px; font-weight: 700;
 }}
-{s} .ced-horizontal {{
-  display: flex; height: 120px; padding: 16px; gap: 2px;
+{s} .ced-vertical {{
+  display: flex; flex-direction: column; padding: 16px; gap: 4px;
+  min-height: 200px;
 }}
 {s} .ced-component {{
-  display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
-  border: 3px solid black; padding: 8px;
+  display: flex; flex-direction: row;
+  justify-content: space-between; align-items: center;
+  border: 3px solid black; padding: 12px 16px;
   cursor: pointer; position: relative;
   transition: transform 0.1s;
-  overflow: hidden; min-width: 30px;
+  overflow: hidden; min-height: 40px; width: 100%;
 }}
 {s} .ced-component:hover {{
-  transform: translateY(-2px); z-index: 10;
+  transform: translateX(4px); z-index: 10;
 }}
 {s} .ced-component .ced-icon {{
-  font-size: 20px; margin-bottom: 4px;
+  font-size: 18px; margin-right: 8px;
+}}
+{s} .ced-component .ced-left {{
+  display: flex; align-items: center;
 }}
 {s} .ced-component .ced-label {{
-  font-size: 9px; font-weight: 700;
+  font-size: 11px; font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px; text-align: center;
+  letter-spacing: 0.5px;
   white-space: nowrap;
 }}
 {s} .ced-component .ced-tokens {{
-  font-size: 10px; font-weight: 400; margin-top: 2px;
+  font-size: 11px; font-weight: 400; margin-left: auto;
 }}
 {comp_css}
 {s} .ced-comp-unused {{
@@ -383,7 +387,7 @@ class ContextBuilder:
   color: {UNUSED_TEXT_COLOR};
 }}
 {s} .ced-comp-unused.ced-collapsed {{
-  flex: 0.15 !important; min-width: 24px; max-width: 40px;
+  min-height: 24px !important; max-height: 24px; padding: 4px 16px;
 }}
 {s} .ced-comp-unused.ced-collapsed .ced-label,
 {s} .ced-comp-unused.ced-collapsed .ced-tokens {{
@@ -391,17 +395,9 @@ class ContextBuilder:
 }}
 {s} .ced-comp-unused .ced-lacuna {{
   display: none; font-size: 12px; font-weight: 700;
-  writing-mode: vertical-rl; text-orientation: mixed;
 }}
 {s} .ced-comp-unused.ced-collapsed .ced-lacuna {{
   display: block;
-}}
-{s} .ced-treemap .ced-comp-unused.ced-collapsed {{
-  width: 24px !important; left: auto !important; right: 16px !important;
-}}
-{s} .ced-treemap .ced-comp-unused.ced-collapsed .ced-label,
-{s} .ced-treemap .ced-comp-unused.ced-collapsed .ced-tokens {{
-  display: none;
 }}
 {s} .ced-score-badge {{
   position: absolute; top: 4px; right: 4px;
@@ -563,38 +559,33 @@ class ContextBuilder:
 {s} .ced-context-panel .ced-panel-content {{
   max-height: 400px; overflow-y: auto;
 }}
-{s} .ced-treemap {{
-  position: relative; height: 300px; padding: 16px;
+{s} .ced-context-panel .ced-doc-item {{
+  position: relative;
 }}
-{s} .ced-treemap-item {{
-  position: absolute; display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
-  border: 3px solid black; cursor: pointer; overflow: hidden;
-  transition: transform 0.1s;
+{s} .ced-context-panel .ced-doc-item.ced-drop-above::before {{
+  content: ''; position: absolute; left: 0; right: 0; top: -3px;
+  height: 3px; background: #0066FF;
 }}
-{s} .ced-treemap-item:hover {{ z-index: 10; }}
-{s} .ced-treemap-item .ced-icon {{ font-size: 16px; margin-bottom: 2px; }}
-{s} .ced-treemap-item .ced-label {{
-  font-size: 9px; font-weight: 700; text-transform: uppercase;
-  text-align: center; white-space: nowrap;
+{s} .ced-context-panel .ced-doc-item.ced-drop-below::after {{
+  content: ''; position: absolute; left: 0; right: 0; bottom: -3px;
+  height: 3px; background: #0066FF;
 }}
-{s} .ced-treemap-item .ced-tokens {{ font-size: 9px; margin-top: 1px; }}
 {s} .ced-component.ced-dragging {{
   opacity: 0.5; transform: scale(1.02); z-index: 1000;
   cursor: grabbing !important; box-shadow: 0 4px 0 black;
 }}
-{s} .ced-component.ced-drop-left::before {{
-  content: ''; position: absolute; left: -4px; top: 0; bottom: 0;
-  width: 4px; background: #0066FF;
+{s} .ced-component.ced-drop-above::before {{
+  content: ''; position: absolute; left: 0; right: 0; top: -4px;
+  height: 4px; background: #0066FF;
 }}
-{s} .ced-component.ced-drop-right::after {{
-  content: ''; position: absolute; right: -4px; top: 0; bottom: 0;
-  width: 4px; background: #0066FF;
+{s} .ced-component.ced-drop-below::after {{
+  content: ''; position: absolute; left: 0; right: 0; bottom: -4px;
+  height: 4px; background: #0066FF;
 }}
-{s} .ced-horizontal.ced-dragging-active {{
+{s} .ced-vertical.ced-dragging-active {{
   cursor: grabbing;
 }}
-{s} .ced-horizontal.ced-dragging-active .ced-comp-unused {{
+{s} .ced-vertical.ced-dragging-active .ced-comp-unused {{
   opacity: 0.3; pointer-events: none;
 }}
 """
@@ -623,86 +614,29 @@ class ContextBuilder:
             f'<span class="ced-token-counter">{token_str}</span>',
         ]
 
-        # Horizontal layout
-        h_style = "" if self.layout == "horizontal" else "display:none;"
-        parts.append(f'<div class="ced-horizontal" id="ced-hlayout-{uid}" style="{h_style}">')
-        items = compute_horizontal_layout(self.trace)
+        # Vertical layout
+        parts.append(f'<div class="ced-vertical" id="ced-vlayout-{uid}">')
+        items = compute_vertical_layout(self.trace)
         for item in items:
             parts.append(self._component_div(item, uid))
         parts.append("</div>")
 
-        # Treemap layout placeholder (filled in Phase 6)
-        t_style = "" if self.layout == "treemap" else "display:none;"
-        parts.append(f'<div class="ced-treemap" id="ced-tlayout-{uid}" style="{t_style}">')
-        if self.layout == "treemap":
-            parts.append(self._treemap_items_html(uid))
         parts.append("</div>")
-
-        parts.append("</div>")
-        return "\n".join(parts)
-
-    def _treemap_items_html(self, uid: str) -> str:
-        """Render treemap items using absolute positioning."""
-        try:
-            from context_engineering_dashboard.layouts.treemap import compute_treemap_layout
-        except ImportError:
-            return ""
-
-        container_w = 100.0  # percentage
-        container_h = 268.0  # pixels (300 - 2*16 padding)
-        rects = compute_treemap_layout(self.trace, container_w, container_h)
-        parts = []
-        for r in rects:
-            if r.is_unused or r.component_type is None:
-                css_cls = "ced-comp-unused"
-            else:
-                css_cls = CSS_CLASSES.get(r.component_type, "")
-
-            icon = ""
-            label = "Unused"
-            lacuna = ""
-            if r.is_unused:
-                lacuna = '<span class="ced-lacuna">\\...\\</span>'
-            if not r.is_unused and r.component_type is not None:
-                icon = COMPONENT_ICONS.get(r.component_type, "")
-                label = COMPONENT_LABELS.get(r.component_type, "")
-                if r.component_id and r.component_id.startswith("rag_"):
-                    label = f"RAG {r.component_id}"
-
-            score_badge = ""
-            if not r.is_unused:
-                for comp in self.trace.components:
-                    if comp.id == r.component_id:
-                        sc = comp.metadata.get("chroma_score")
-                        if sc is not None:
-                            score_badge = f'<span class="ced-score-badge">{sc}</span>'
-                        break
-
-            parts.append(
-                f'<div class="ced-treemap-item {css_cls}" '
-                f'data-comp-id="{html.escape(r.component_id or "_unused")}" '
-                f'data-orig-x="{r.x}" data-orig-y="{r.y}" '
-                f'data-orig-w="{r.width}" data-orig-h="{r.height}" '
-                f'data-tokens="{r.token_count}" '
-                f'style="left:{r.x}%;top:{r.y}px;width:{r.width}%;height:{r.height}px;">'
-                f"{score_badge}"
-                f'<span class="ced-icon">{icon}</span>'
-                f'<span class="ced-label">{html.escape(label)}</span>'
-                f'<span class="ced-tokens">{r.token_count:,}</span>'
-                f"{lacuna}"
-                f"</div>"
-            )
         return "\n".join(parts)
 
     def _component_div(self, item: dict, uid: str) -> str:
-        """Render a single component div for horizontal layout."""
+        """Render a single component div for vertical layout."""
+        height = item.get("height", 40)
+
         if item["is_unused"]:
             return (
                 f'<div class="ced-component ced-comp-unused" '
-                f'style="flex:{item["flex"]};" data-comp-id="_unused">'
+                f'style="height:{height}px;" data-comp-id="_unused">'
+                f'<span class="ced-left">'
                 f'<span class="ced-label">Unused</span>'
+                f'</span>'
                 f'<span class="ced-tokens">{item["token_count"]:,}</span>'
-                f'<span class="ced-lacuna">\\...\\</span>'
+                f'<span class="ced-lacuna">...</span>'
                 f"</div>"
             )
 
@@ -723,10 +657,12 @@ class ContextBuilder:
 
         return (
             f'<div class="ced-component {css_cls}" '
-            f'style="flex:{item["flex"]};" data-comp-id="{comp_id}">'
+            f'style="height:{height}px;" data-comp-id="{comp_id}">'
             f"{score_badge}"
+            f'<span class="ced-left">'
             f'<span class="ced-icon">{icon}</span>'
             f'<span class="ced-label">{html.escape(label)}</span>'
+            f'</span>'
             f'<span class="ced-tokens">{item["token_count"]:,}</span>'
             f"</div>"
         )
@@ -768,6 +704,7 @@ class ContextBuilder:
                     f'<div class="ced-doc-item {sel_cls}" '
                     f'data-item-id="{html.escape(item.id)}" '
                     f'data-resource="{html.escape(resource.name)}" '
+                    f'data-color="{res_type_color}" '
                     f'draggable="true" '
                     f'style="border-left: 4px solid {res_type_color};">'
                     f"{score_badge}"
@@ -933,15 +870,7 @@ class ContextBuilder:
   var iconMap = {json.dumps({ct.value: COMPONENT_ICONS[ct] for ct in ComponentType})};
 
   // Get all component elements
-  var components = container.querySelectorAll('.ced-component, .ced-treemap-item');
-
-  // Layout toggle
-  window.cedToggleLayout_{uid} = function(layout) {{
-    var h = document.getElementById('ced-hlayout-{uid}');
-    var t = document.getElementById('ced-tlayout-{uid}');
-    if (h) h.style.display = layout === 'horizontal' ? '' : 'none';
-    if (t) t.style.display = layout === 'treemap' ? '' : 'none';
-  }};
+  var components = container.querySelectorAll('.ced-component');
 
   // Close modal
   window.cedCloseModal_{uid} = function() {{
@@ -1029,51 +958,6 @@ class ContextBuilder:
     if (textarea) textarea.focus();
   }}
 
-  // Recalculate treemap positions when unused is collapsed
-  function recalcTreemap(collapsed) {{
-    var treemap = container.querySelector('.ced-treemap');
-    if (!treemap) return;
-
-    var items = treemap.querySelectorAll('.ced-treemap-item');
-    var unusedEl = treemap.querySelector('[data-comp-id="_unused"]');
-    if (!unusedEl) return;
-
-    if (collapsed) {{
-      // Calculate total tokens for used components
-      var totalUsedTokens = 0;
-      items.forEach(function(el) {{
-        if (el.getAttribute('data-comp-id') !== '_unused') {{
-          totalUsedTokens += parseInt(el.getAttribute('data-tokens') || 0);
-        }}
-      }});
-
-      // Collapse unused to thin strip on right
-      var th = treemap.clientHeight - 32; // padding
-      unusedEl.style.height = th + 'px';
-      unusedEl.style.top = '16px';
-
-      // Scale other items to fill ~97% of width (leaving 3% for collapsed unused)
-      var scaleFactor = 97 / 100;
-      items.forEach(function(el) {{
-        if (el.getAttribute('data-comp-id') !== '_unused') {{
-          var origW = parseFloat(el.getAttribute('data-orig-w'));
-          var origX = parseFloat(el.getAttribute('data-orig-x'));
-          el.style.width = (origW * scaleFactor) + '%';
-          el.style.left = (origX * scaleFactor) + '%';
-        }}
-      }});
-    }} else {{
-      // Restore original positions
-      items.forEach(function(el) {{
-        el.style.width = el.getAttribute('data-orig-w') + '%';
-        el.style.left = el.getAttribute('data-orig-x') + '%';
-        el.style.height = el.getAttribute('data-orig-h') + 'px';
-        el.style.top = el.getAttribute('data-orig-y') + 'px';
-        el.style.right = '';
-      }});
-    }}
-  }}
-
   // Drag-and-drop state
   var dragState = {{
     isDragging: false,
@@ -1090,7 +974,6 @@ class ContextBuilder:
 
   function handleDragStart(el, e) {{
     if (el.getAttribute('data-comp-id') === '_unused') return;
-    if (el.classList.contains('ced-treemap-item')) return; // Treemap not draggable
 
     dragState.startX = e.clientX;
     dragState.startY = e.clientY;
@@ -1123,19 +1006,19 @@ class ContextBuilder:
     dragState.isDragging = true;
     dragState.draggedEl.classList.add('ced-dragging');
 
-    var horizontal = container.querySelector('.ced-horizontal');
-    if (horizontal) horizontal.classList.add('ced-dragging-active');
+    var vertical = container.querySelector('.ced-vertical');
+    if (vertical) vertical.classList.add('ced-dragging-active');
 
     tooltip.style.display = 'none';
   }}
 
   function updateDropTarget(e) {{
-    var horizontal = container.querySelector('.ced-horizontal');
-    if (!horizontal) return;
+    var vertical = container.querySelector('.ced-vertical');
+    if (!vertical) return;
 
     clearDropIndicators();
 
-    var comps = horizontal.querySelectorAll('.ced-component:not(.ced-comp-unused):not(.ced-dragging)');
+    var comps = vertical.querySelectorAll('.ced-component:not(.ced-comp-unused):not(.ced-dragging)');
 
     for (var i = 0; i < comps.length; i++) {{
       var comp = comps[i];
@@ -1144,22 +1027,22 @@ class ContextBuilder:
       if (e.clientX >= rect.left && e.clientX <= rect.right &&
           e.clientY >= rect.top && e.clientY <= rect.bottom) {{
 
-        var midX = rect.left + rect.width / 2;
-        var position = e.clientX < midX ? 'before' : 'after';
+        var midY = rect.top + rect.height / 2;
+        var position = e.clientY < midY ? 'before' : 'after';
 
         dragState.currentDropTarget = comp;
         dragState.dropPosition = position;
 
-        comp.classList.add(position === 'before' ? 'ced-drop-left' : 'ced-drop-right');
+        comp.classList.add(position === 'before' ? 'ced-drop-above' : 'ced-drop-below');
         break;
       }}
     }}
   }}
 
   function clearDropIndicators() {{
-    var indicators = container.querySelectorAll('.ced-drop-left, .ced-drop-right');
+    var indicators = container.querySelectorAll('.ced-drop-above, .ced-drop-below');
     indicators.forEach(function(el) {{
-      el.classList.remove('ced-drop-left', 'ced-drop-right');
+      el.classList.remove('ced-drop-above', 'ced-drop-below');
     }});
     dragState.currentDropTarget = null;
     dragState.dropPosition = null;
@@ -1187,17 +1070,17 @@ class ContextBuilder:
 
     if (!target || !dragged || target === dragged) return;
 
-    var horizontal = container.querySelector('.ced-horizontal');
-    if (!horizontal) return;
+    var vertical = container.querySelector('.ced-vertical');
+    if (!vertical) return;
 
     if (position === 'before') {{
-      horizontal.insertBefore(dragged, target);
+      vertical.insertBefore(dragged, target);
     }} else {{
       var next = target.nextElementSibling;
       if (next) {{
-        horizontal.insertBefore(dragged, next);
+        vertical.insertBefore(dragged, next);
       }} else {{
-        horizontal.appendChild(dragged);
+        vertical.appendChild(dragged);
       }}
     }}
 
@@ -1209,8 +1092,8 @@ class ContextBuilder:
       dragState.draggedEl.classList.remove('ced-dragging');
     }}
 
-    var horizontal = container.querySelector('.ced-horizontal');
-    if (horizontal) horizontal.classList.remove('ced-dragging-active');
+    var vertical = container.querySelector('.ced-vertical');
+    if (vertical) vertical.classList.remove('ced-dragging-active');
 
     clearDropIndicators();
 
@@ -1223,11 +1106,11 @@ class ContextBuilder:
   }}
 
   function updateComponentOrder() {{
-    var horizontal = container.querySelector('.ced-horizontal');
-    if (!horizontal) return;
+    var vertical = container.querySelector('.ced-vertical');
+    if (!vertical) return;
 
     var newOrder = [];
-    var comps = horizontal.querySelectorAll('.ced-component:not(.ced-comp-unused)');
+    var comps = vertical.querySelectorAll('.ced-component:not(.ced-comp-unused)');
     comps.forEach(function(el) {{
       var id = el.getAttribute('data-comp-id');
       if (id && id !== '_unused') {{
@@ -1421,12 +1304,15 @@ class ContextBuilder:
       var clone = availableItem.cloneNode(true);
       clone.classList.remove('ced-unselected');
       clone.classList.add('ced-selected');
-      clone.style.background = '#00AA55';
+      var itemColor = availableItem.getAttribute('data-color') || '#00AA55';
+      clone.style.background = itemColor;
       clone.style.color = 'white';
+      clone.style.borderLeft = '';
       clone.querySelector('.ced-doc-check').textContent = '';
       contextContent.appendChild(clone);
-      // Re-init drag on the new element
+      // Re-init drag and click handlers on the new element
       initDragOnElement(clone);
+      initDocItemClickHandlers();
     }} else if (!selected && contextItem) {{
       contextItem.remove();
     }}
@@ -1447,6 +1333,60 @@ class ContextBuilder:
       item.classList.remove('ced-dragging');
       availablePanel.classList.remove('ced-drop-target');
       contextPanel.classList.remove('ced-drop-target');
+      clearContextDropIndicators();
+    }});
+
+    // Add reorder handlers for context panel items
+    item.addEventListener('dragover', function(e) {{
+      if (!item.closest('.ced-context-panel')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      clearContextDropIndicators();
+      var rect = item.getBoundingClientRect();
+      var midY = rect.top + rect.height / 2;
+      if (e.clientY < midY) {{
+        item.classList.add('ced-drop-above');
+      }} else {{
+        item.classList.add('ced-drop-below');
+      }}
+    }});
+
+    item.addEventListener('dragleave', function(e) {{
+      item.classList.remove('ced-drop-above', 'ced-drop-below');
+    }});
+
+    item.addEventListener('drop', function(e) {{
+      if (!item.closest('.ced-context-panel')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      contextPanel.classList.remove('ced-drop-target');
+      clearContextDropIndicators();
+      try {{
+        var data = JSON.parse(e.dataTransfer.getData('text/plain'));
+        if (data.fromContext && data.itemId && data.resource) {{
+          // Internal reorder
+          var draggedItem = contextPanel.querySelector(
+            '.ced-doc-item[data-item-id="' + data.itemId + '"][data-resource="' + data.resource + '"]'
+          );
+          if (draggedItem && draggedItem !== item) {{
+            var rect = item.getBoundingClientRect();
+            var midY = rect.top + rect.height / 2;
+            if (e.clientY < midY) {{
+              item.parentNode.insertBefore(draggedItem, item);
+            }} else {{
+              item.parentNode.insertBefore(draggedItem, item.nextSibling);
+            }}
+            showSaveButton();
+          }}
+        }}
+      }} catch (err) {{}}
+    }});
+  }}
+
+  function clearContextDropIndicators() {{
+    var indicators = contextPanel.querySelectorAll('.ced-drop-above, .ced-drop-below');
+    indicators.forEach(function(el) {{
+      el.classList.remove('ced-drop-above', 'ced-drop-below');
     }});
   }}
 
@@ -1474,6 +1414,52 @@ class ContextBuilder:
 
   // Initialize cross-panel drag
   initCrossPanelDrag();
+
+  // Add click handlers for two-panel view items (both Available and Context panels)
+  function initDocItemClickHandlers() {{
+    var docItems = container.querySelectorAll('.ced-doc-item');
+    docItems.forEach(function(el) {{
+      // Skip if already has click handler
+      if (el.hasAttribute('data-click-init')) return;
+      el.setAttribute('data-click-init', 'true');
+
+      el.addEventListener('click', function(e) {{
+        // Skip if this is a drag operation
+        if (el.classList.contains('ced-dragging')) return;
+
+        // Check for component (non-resource item)
+        var compId = el.getAttribute('data-comp-id');
+        if (compId && data[compId]) {{
+          showModal(data[compId]);
+          return;
+        }}
+
+        // Check for resource item (works for both Available and Context panels)
+        var itemId = el.getAttribute('data-item-id');
+        var resourceName = el.getAttribute('data-resource');
+        if (itemId && resourceName) {{
+          var resourcesData = typeof cedResources_{uid} !== 'undefined' ? cedResources_{uid} : {{}};
+          var resourceData = resourcesData[resourceName];
+          if (resourceData && resourceData.items) {{
+            var item = resourceData.items.find(function(i) {{ return i.id === itemId; }});
+            if (item) {{
+              var info = {{
+                id: item.id,
+                type: resourceData.type,
+                content: item.content,
+                token_count: item.token_count,
+                metadata: item.score !== null ? {{ score: item.score }} : {{}}
+              }};
+              showModal(info);
+            }}
+          }}
+        }}
+      }});
+    }});
+  }}
+
+  // Initialize click handlers for existing items
+  initDocItemClickHandlers();
 
   // Event handlers for each component
   components.forEach(function(el) {{
@@ -1509,7 +1495,6 @@ class ContextBuilder:
       var compId = el.getAttribute('data-comp-id');
       if (compId === '_unused') {{
         el.classList.toggle('ced-collapsed');
-        recalcTreemap(el.classList.contains('ced-collapsed'));
         return;
       }}
       var info = data[compId];
@@ -1517,7 +1502,7 @@ class ContextBuilder:
       showModal(info);
     }});
 
-    // Mousedown → Start potential drag (horizontal layout only)
+    // Mousedown → Start potential drag
     el.addEventListener('mousedown', function(e) {{
       if (e.button !== 0) return;
       handleDragStart(el, e);

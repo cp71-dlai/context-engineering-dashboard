@@ -96,24 +96,48 @@ class ContextDiff:
         pct_saved = f"{saved / total_b * 100:.1f}" if total_b > 0 else "0"
 
         # Layout constants
-        svg_w, svg_h = 800, 300
+        svg_w = 800
         col_w = 150
         left_x = 20
         right_x = svg_w - col_w - 20
-        usable_h = svg_h - 40  # 20px padding top/bottom
+        padding_top = 20
+        padding_bottom = 20
+        gap = 5
+
+        # Calculate number of visible components to determine usable height
+        num_before = sum(1 for ct in all_types if before_groups.get(ct, 0) > 0)
+        num_after = sum(1 for ct in all_types if after_groups.get(ct, 0) > 0)
+        has_waste = saved > 0 and total_b > 0
+        num_after_with_waste = num_after + (1 if has_waste else 0)
+        max_components = max(num_before, num_after_with_waste, 1)
+
+        # Set minimum usable height and calculate total SVG height
+        min_usable_h = 260
+        # Account for gaps: n components need (n-1) gaps
+        total_gaps = gap * (max_components - 1) if max_components > 1 else 0
+        usable_h = min_usable_h + total_gaps
+        svg_h = usable_h + padding_top + padding_bottom
 
         # Build before rects
-        before_rects = self._build_rects(before_groups, all_types, total_b, left_x, col_w, usable_h)
+        before_rects = self._build_rects(
+            before_groups, all_types, total_b, left_x, col_w, usable_h, gap
+        )
         # Build after rects (include unused/freed space)
         after_types = list(all_types)
         after_rects = self._build_rects(
-            after_groups, after_types, total_b, right_x, col_w, usable_h
+            after_groups, after_types, total_b, right_x, col_w, usable_h, gap
         )
 
         # Add waste/freed node if saved > 0
-        if saved > 0 and total_b > 0:
-            waste_h = max(saved / total_b * usable_h, 15)
-            waste_y = 20 + usable_h - waste_h
+        if has_waste:
+            # Calculate waste height proportionally
+            waste_h = max(saved / total_b * (usable_h - total_gaps), 15)
+            # Position after the last after rect, or calculate from bottom
+            if after_rects:
+                last_rect = after_rects[-1]
+                waste_y = last_rect["y"] + last_rect["h"] + gap
+            else:
+                waste_y = padding_top
             after_rects.append(
                 {
                     "type": None,
@@ -127,6 +151,14 @@ class ContextDiff:
                     "is_waste": True,
                 }
             )
+
+        # Calculate actual required height based on rendered content
+        max_y = padding_top
+        for r in before_rects + after_rects:
+            rect_bottom = r["y"] + r["h"]
+            if rect_bottom > max_y:
+                max_y = rect_bottom
+        svg_h = max(svg_h, max_y + padding_bottom)
 
         # SVG elements
         svg_parts = [f'<svg width="100%" height="{svg_h}" viewBox="0 0 {svg_w} {svg_h}">']
@@ -171,14 +203,20 @@ class ContextDiff:
         x: float,
         w: float,
         usable_h: float,
+        gap: float = 5,
     ) -> list:
         rects = []
         y = 20.0
+        # Count visible components to calculate available height for bars (excluding gaps)
+        visible_count = sum(1 for ct in types if groups.get(ct, 0) > 0)
+        total_gaps = gap * (visible_count - 1) if visible_count > 1 else 0
+        bars_h = usable_h - total_gaps  # Height available for actual bars
+
         for ct in types:
             tokens = groups.get(ct, 0)
             if tokens <= 0:
                 continue
-            h = max(tokens / total * usable_h, 15) if total > 0 else 15
+            h = max(tokens / total * bars_h, 15) if total > 0 else 15
             color = COMPONENT_COLORS.get(ct, "#999999")
             label = COMPONENT_LABELS.get(ct, ct.value).upper()
             rects.append(
@@ -194,7 +232,7 @@ class ContextDiff:
                     "is_waste": False,
                 }
             )
-            y += h + 5
+            y += h + gap
         return rects
 
     def _rect_svg(

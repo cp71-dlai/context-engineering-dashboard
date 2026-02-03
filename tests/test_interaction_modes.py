@@ -190,46 +190,20 @@ def test_unused_collapse_tooltip():
     assert "CLICK TO COLLAPSE" in h
 
 
-def test_treemap_data_attributes():
-    """Treemap items have data attributes for original positions."""
-    ctx = ContextWindow(trace=_make_trace(), layout="treemap")
-    h = ctx.to_html()
-    assert "data-orig-x=" in h
-    assert "data-orig-y=" in h
-    assert "data-orig-w=" in h
-    assert "data-orig-h=" in h
-    assert "data-tokens=" in h
-
-
-def test_treemap_collapse_function():
-    """Treemap has recalcTreemap function for collapse/expand."""
-    ctx = ContextWindow(trace=_make_trace(), layout="treemap")
-    h = ctx.to_html()
-    assert "recalcTreemap" in h
-    assert "recalcTreemap(el.classList.contains" in h
-
-
-def test_treemap_collapse_css():
-    """Treemap has CSS for collapsed unused space."""
-    ctx = ContextWindow(trace=_make_trace(), layout="treemap")
-    h = ctx.to_html()
-    assert "ced-treemap .ced-comp-unused.ced-collapsed" in h
-
-
-def test_treemap_lacuna():
-    """Treemap unused space has lacuna element."""
-    ctx = ContextWindow(trace=_make_trace(), layout="treemap")
+def test_vertical_lacuna():
+    """Vertical layout unused space has lacuna element for collapse."""
+    ctx = ContextWindow(trace=_make_trace(), layout="vertical")
     h = ctx.to_html()
     assert "ced-lacuna" in h
 
 
 def test_drag_css_classes_present():
-    """CSS should include drag-related classes."""
+    """CSS should include drag-related classes for vertical layout."""
     ctx = ContextWindow(trace=_make_trace())
     h = ctx.to_html()
     assert "ced-dragging" in h
-    assert "ced-drop-left" in h
-    assert "ced-drop-right" in h
+    assert "ced-drop-above" in h
+    assert "ced-drop-below" in h
 
 
 def test_drag_threshold_constants():
@@ -269,3 +243,18 @@ def test_drag_custom_event():
     h = ctx.to_html()
     assert "ced-reorder" in h
     assert "data-component-order" in h
+
+
+def test_context_panel_drop_indicators_css():
+    """Context panel should have drop indicator CSS for reordering."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert ".ced-context-panel .ced-doc-item.ced-drop-above" in h
+    assert ".ced-context-panel .ced-doc-item.ced-drop-below" in h
+
+
+def test_clear_context_drop_indicators_function():
+    """clearContextDropIndicators function should be present for reorder."""
+    ctx = ContextWindow(trace=_make_trace())
+    h = ctx.to_html()
+    assert "clearContextDropIndicators" in h

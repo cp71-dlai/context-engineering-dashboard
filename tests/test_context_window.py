@@ -147,12 +147,12 @@ def test_modal_overlay():
     assert "ced-modal-header" in h
 
 
-def test_horizontal_layout_flex():
-    ctx = ContextWindow(trace=_make_trace(), layout="horizontal")
+def test_vertical_layout_height():
+    ctx = ContextWindow(trace=_make_trace(), layout="vertical")
     h = ctx.to_html()
-    assert "ced-horizontal" in h
-    # System prompt: 2000 tokens -> flex: 2.0
-    assert "flex:2.0" in h or "flex:2" in h
+    assert "ced-vertical" in h
+    # Components should have height styling
+    assert "height:" in h
 
 
 def test_context_limit_override():
