@@ -1,9 +1,6 @@
 # Context Engineering
 
-[![PyPI](https://img.shields.io/pypi/v/context-engineering-dashboard)](https://pypi.org/project/context-engineering-dashboard/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](https://opensource.org/licenses/MIT)
-
-View, explore, and edit LLM context windows in Jupyter notebooks. 
+Build and Diff LLM context windows in Jupyter notebooks. 
 
 ![Context Window Visualization](docs/demo.png)
 
