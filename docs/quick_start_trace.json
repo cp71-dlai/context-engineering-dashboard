@@ -1,0 +1,50 @@
+{
+  "context_limit": 128000,
+  "total_tokens": 39,
+  "components": [
+    {
+      "id": "system_0",
+      "type": "system_prompt",
+      "content": "You are a concise technical writer.",
+      "token_count": 7,
+      "metadata": {}
+    },
+    {
+      "id": "user_1",
+      "type": "user_message",
+      "content": "Explain what context engineering is and why it matters for LLM applications. Keep it to 3 sentences.",
+      "token_count": 22,
+      "metadata": {}
+    }
+  ],
+  "trace": {
+    "$schema": "https://github.com/cp71-dlai/context-engineering-dashboard/schemas/trace.json",
+    "schema_version": "1.0.0",
+    "provider": "openai",
+    "model": "gpt-4o",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a concise technical writer."
+      },
+      {
+        "role": "user",
+        "content": "Explain what context engineering is and why it matters for LLM applications. Keep it to 3 sentences."
+      }
+    ],
+    "response": "Context engineering involves designing and optimizing the input prompts and surrounding data to enhance the performance of large language models (LLMs). It is crucial because effective context engineering can significantly improve an LLM's ability to understand and generate relevant, accurate, and coherent responses. This ensures that the application meets user expectations and achieves desired outcomes efficiently.",
+    "tool_calls": [],
+    "usage": {
+      "prompt_tokens": 39,
+      "completion_tokens": 65,
+      "total_tokens": 104
+    },
+    "latency_ms": 2126.4610290527344,
+    "timestamp": "2026-02-13T18:38:29.310808+00:00",
+    "session_id": "421699ad"
+  },
+  "embedding_traces": [],
+  "timestamp": "2026-02-13T18:38:29.310866+00:00",
+  "session_id": "12a83f28",
+  "tags": []
+}
